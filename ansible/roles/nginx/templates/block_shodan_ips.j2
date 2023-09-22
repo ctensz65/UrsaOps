@@ -1,0 +1,3 @@
+{% for item in shodan_ips.list %}
+deny {{ item.ip }};
+{% endfor %}

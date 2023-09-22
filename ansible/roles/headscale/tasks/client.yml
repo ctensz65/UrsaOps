@@ -1,0 +1,44 @@
+---
+- name: Set pre_auth_key for redirector group
+  set_fact:
+    pre_auth_key: "{{ pre_auth['redirector'] }}"
+  when: inventory_hostname == redirector.https
+
+- name: Set pre_auth_key for redirector group
+  set_fact:
+    pre_auth_key: "{{ pre_auth['redirector'] }}"
+  when: inventory_hostname == redirector.dns
+
+- name: Set pre_auth_key for redirector group
+  set_fact:
+    pre_auth_key: "{{ pre_auth['redirector'] }}"
+  when: inventory_hostname == redirector.phish
+
+- name: Set pre_auth_key for c2server
+  set_fact:
+    pre_auth_key: "{{ pre_auth['c2server'] }}"
+  when: inventory_hostname == c2_machine
+
+- name: Set pre_auth_key for phishserver
+  set_fact:
+    pre_auth_key: "{{ pre_auth['phishsrv'] }}"
+  when: inventory_hostname == phish_machine
+
+- name: Set pre_auth_key for siem
+  set_fact:
+    pre_auth_key: "{{ pre_auth['siem'] }}"
+  when: inventory_hostname == 'siem'
+
+- name: Set pre_auth_key for jumphost
+  set_fact:
+    pre_auth_key: "{{ pre_auth['jumphost'] }}"
+  when: inventory_hostname == 'jumphost'
+
+- name: Display pre_auth_key
+  debug:
+    msg: "{{ pre_auth_key }}"
+
+- name: Connect the client to headscale controlplane
+  command:
+    cmd: "tailscale up --login-server {{ url }} --authkey {{ pre_auth_key }}"
+  when: pre_auth_key is defined

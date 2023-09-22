@@ -1,0 +1,36 @@
+{% if c2_data is not none -%}
+## ========= General ========= ##
+{%- set redir_https_data = c2_data.redir_https -%}
+{%- if redir_https_data.count == 1 %}
+domain: {{  redir_https_data.domain }}
+{%- elif redir_https_data.count > 1 %}
+redir_https: 2
+domain: [{{  redir_https_data.domain }}]
+{% endif -%}
+domain_c2_local: c2server.local
+{%- if c2_data.get('redir_dns') %}
+dns_subdomain: {{ c2_data.redir_dns.subdomain }}
+{% endif -%}
+ip_tailscale_c2: ""
+
+{% if c2_framework.get('cobaltstrike') -%}
+## ========= CobaltStrike ========= ##
+keystore_alias: c2server
+user_agent_cobalt: "{{ c2_framework.cobaltstrike.user_agent }}"
+c2_profile: "{{ c2_framework.cobaltstrike.profile }}"
+archieve_file_path: "{{ c2_framework.cobaltstrike.archieve_file_path }}"
+
+{% elif c2_framework.get('sliver') %}
+## ========= Sliver ========= ##
+name_sliver_operator: neo
+version_sliver: "v{{ c2_framework.sliver.version }}"
+user_agent_sliver: "{{ c2_framework.sliver.user_agent }}"
+auth_header: "Basic c22ed12456e9eb9844eafe80f3d8c080"
+uri_path: "{{ c2_framework.sliver.uri_path }}"
+
+{% elif c2_framework.get('havoc') %}
+## ========= Havoc ========= ##
+user_agent: "{{ c2_framework.havoc.user_agent }}"
+profile_havoc: "{{ c2_framework.havoc.profile }}"
+{% endif %}
+{% endif %}

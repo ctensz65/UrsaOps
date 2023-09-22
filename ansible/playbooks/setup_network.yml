@@ -1,0 +1,140 @@
+---
+- name: Install Requirement Packages
+  hosts: infra
+  become: yes
+  roles:
+    - role: common
+      tasks_from: main
+  tags:
+    - initial
+
+- name: Install Docker at Backend Server
+  hosts: headscale
+  become: yes
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: docker
+  tags:
+    - install_docker
+
+- name: Install Caddyserver
+  hosts: headscale
+  become: yes
+  roles:
+    - role: caddy
+  tags:
+    - install_caddy
+
+- name: Setup headscale control plane
+  hosts: headscale
+  become: yes
+  roles:
+    - role: headscale
+      tasks_from: main
+  tags:
+    - controlplane
+
+- name: Add Headscale User
+  hosts: headscale
+  become: yes
+  tasks:
+    - name: Add user
+      command:
+        cmd: docker exec headscale headscale user create {{ item }}
+        chdir: /opt/headscale
+      loop: "{{ pre_auth_user }}"
+      run_once: yes
+  tags:
+    - createuser
+
+- name: Generate PreAuth Key
+  hosts: headscale
+  become: yes
+  tasks:
+    - include_role:
+        name: headscale
+        tasks_from: register
+  tags:
+    - createuser
+
+- name: Start Caddy
+  hosts: headscale
+  become: yes
+  tasks:
+    - include_role:
+        name: caddy
+        tasks_from: start
+  tags:
+    - startcaddy
+
+- name: Connect tailscale client
+  hosts: all
+  serial: yes
+  vars_files:
+    - roles/headscale/files/pre_auth_keys.yml
+  become: yes
+  tasks:
+    - include_role:
+        name: headscale
+        tasks_from: client
+  tags:
+    - connectclient
+
+- name: Extract tailscale client ip from nodes
+  hosts: headscale
+  become: yes
+  tasks:
+    - include_role:
+        name: headscale
+        tasks_from: grab_ip
+  tags:
+    - extract_ip
+#
+# - name: Set exit nodes
+#   hosts: redirectors
+#   become: yes
+#   tasks:
+#     - include_role:
+#         name: headscale
+#         tasks_from: setup_exit_node
+#   tags:
+#     - exitnode
+
+# - name: Enable exit nodes
+#   hosts: headscale
+#   become: yes
+#   tasks:
+#     - include_role:
+#         name: headscale
+#         tasks_from: enable_exit_node
+#   tags:
+#     - enablenode
+
+# - name: Use the exit node 1 (redirc2)
+#   hosts: c2server
+#   vars_files:
+#     - roles/headscale/files/nodes.yml
+#   become: yes
+#   tasks:
+#     - name: Find IP for redirhttps
+#       set_fact:
+#         redirhttps_ip: "{{ ip_tailscale | selectattr('hostname', 'equalto', 'redirhttps') | map(attribute='ip') | first }}"
+
+#     - name: Use the exit node
+#       command:
+#         cmd: tailscale set --exit-node={{ redirhttps_ip }}
+#   tags:
+#     - useexit_1
+#
+# - name: Use the exit node 2 [redirphish]
+#   hosts: redirectors
+#   become: yes
+#   tasks:
+#     - name: Use the exit node [Redirector Gophish]
+#       command:
+#         cmd: docker exec headscale headscale routes enable -r {{ item.id }}
+#         chdir: /opt/headscale
+#       loop: "{{ filtered_routes }}"
+#   tags:
+#     - useexit_2

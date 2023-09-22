@@ -1,0 +1,4 @@
+pre_auth:
+{% for item in pre_auth_keys %}
+  {{ item.item }}: "{{ item.stdout }}"
+{% endfor %}

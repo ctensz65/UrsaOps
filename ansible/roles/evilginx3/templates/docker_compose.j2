@@ -1,0 +1,15 @@
+version: "3"
+services:
+  evilginx:
+    tty: true
+    image: evilginx2:latest
+    container_name: evilginx2
+    environment:
+      - TZ={{ timezone }}
+    volumes:
+      - ./config:/opt/evilginx/config
+      - ./phishlets:/opt/evilginx/phishlets
+    ports:
+      - 80:80
+      - 8443:443
+    restart: always

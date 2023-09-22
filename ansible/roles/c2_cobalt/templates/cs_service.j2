@@ -1,0 +1,15 @@
+[Unit]
+Description=Cobalt Strike Team Server
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+WorkingDirectory=/opt/cobaltstrike47
+ExecStart=/opt/cobaltstrike47/teamserver {{ ip_tailscale_c2 }} {{ password_teamserver }} c2-profiles/{{ c2_profile }}
+
+[Install]
+WantedBy=multi-user.target

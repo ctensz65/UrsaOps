@@ -1,0 +1,18 @@
+---
+- name: Set certbot package for redirector.phish
+  set_fact:
+    certbot_package: "python3-certbot-apache"
+  when: "redirector.phish in inventory_hostname"
+
+- name: Set certbot package for other hosts
+  set_fact:
+    certbot_package: "python3-certbot-nginx"
+  when: "redirector.phish not in inventory_hostname"
+
+- name: Install Certbot
+  apt:
+    name:
+      - python3-certbot
+      - "{{ certbot_package }}"
+    state: present
+    update_cache: yes

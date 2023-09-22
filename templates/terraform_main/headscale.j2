@@ -1,0 +1,99 @@
+{% if output_type == 'headscale' %}
+module "headscale" {
+{% if headscale_data.provider == "aws" %}
+    source              = "../../modules/aws"
+    instance_name       = "headscale"
+    tag_name            = "headscale"
+    computer_name       = "{{ headscale_data.vm_hostname }}"
+    username_vm         = "{{ headscale_data.vm_username }}"
+{% elif headscale_data.provider == "azure" %}
+    source              = "../../modules/azure"
+    resource_group_name = "segment_net_resources"
+    instance_name       = "headscale"
+    computer_name       = "{{ headscale_data.vm_hostname }}"
+    username_vm         = "{{ headscale_data.vm_username }}"
+    tags_segment        = "headscale"
+{% elif headscale_data.provider == "digitalocean" %}
+    source              = "../../modules/digitalocean"
+    instance_name       = "headscale"
+    tag_name            = "headscale"
+    computer_name       = "{{ headscale_data.vm_hostname }}"
+    username_vm         = "{{ headscale_data.vm_username }}"
+{% endif %}
+{% if headscale_data.provider == "aws" %}
+    ingress_rules = [
+      {
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      },
+      {
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      }
+    ]
+
+    egress_rules = [
+      {
+        from_port   = 53
+        to_port     = 53
+        protocol    = "udp"
+        cidr_blocks = ["0.0.0.0/0"]
+      },
+      {
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      },
+      {
+        from_port   = 25
+        to_port     = 25
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      },
+      {
+        from_port   = 465
+        to_port     = 465
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      }
+    ]
+}
+{% elif headscale_data.provider == "azure" %}
+    inbound_rules       = [
+      {
+        port     = "22"
+        protocol = "Tcp"
+      },
+      {
+        port     = "443"
+        protocol = "Tcp"
+      }
+    ]
+}
+{% endif %}
+
+locals {
+  headscale_instances = [
+    module.headscale.instance_details
+  ]
+
+  inventory_content = templatefile("${path.module}/../../../templates/terraform_main/inventory.tpl", {
+    headscale_instances = local.headscale_instances
+  })
+}
+
+resource "local_file" "ansible_inventory" {
+  content  = local.inventory_content
+  filename = "${path.root}/inventory.ini"
+}
+
+{%- elif output_type == 'c2' -%}
+{% include 'c2_segment.j2' %}
+{%- elif output_type == 'phish' -%}
+{% include 'phish_segment.j2' %}
+{% endif %}

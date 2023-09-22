@@ -1,0 +1,29 @@
+{% if phish_data is not none -%}
+## ========= General ========= ##
+domain_phish: "{{ phish_data.domain }}"
+email_certbot: "noemail@{{ phish_data.domain }}"
+dns_provider: "{{ phish_data.dns_provider }}"
+local_ip_phishsrv: ""
+ip_redir_phish: ""
+
+## ========= Gophish ========= ##
+path_dir_gophish: "/opt/gophish"
+build_version: "latest"
+
+## ========= Gophish ========= ##
+path_dir_evilginx: "/opt/evilginx"
+redirect_url: "{{ phish_data.evilginx.redirect_url }}"
+path_lures: "{{ phish_data.evilginx.path_lures }}"
+timezone: "{{ general_data.ntp_timezone }}"
+
+phishlets_name: "{{ phish_data.evilginx.phishlets }}"
+{%- if phish_data.evilginx.phishlets == "o365" %}
+phish_sub:
+  - www.{{ phish_data.domain }}
+  - login.{{ phish_data.domain }}
+{% else %}
+phish_sub:
+  - sub.yourphishdomain.com
+  - sub.yourphishdomain.com
+{% endif %}
+{% endif %}

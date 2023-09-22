@@ -1,0 +1,6 @@
+ip_tailscale:
+  - { hostname: "c2server", ip: "100.64.0.1", user: "c2server" }
+  - { hostname: "redirhttps", ip: "100.64.0.2", user: "redirector" }
+  - { hostname: "parrot", ip: "100.64.0.3", user: "jumphost" }
+  - { hostname: "ip-172-31-24-47", ip: "100.64.0.4", user: "redirector" }
+  - { hostname: "ip-172-31-30-214", ip: "100.64.0.5", user: "phishsrv" }

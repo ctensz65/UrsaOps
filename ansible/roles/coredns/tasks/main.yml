@@ -1,0 +1,34 @@
+---
+- name: Download CoreDNS
+  get_url:
+    url: https://github.com/coredns/coredns/releases/download/v1.11.1/coredns_1.11.1_linux_amd64.tgz
+    dest: /tmp/coredns_1.11.1_linux_amd64.tgz
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Extract CoreDNS
+  unarchive:
+    src: "/tmp/coredns_1.11.1_linux_amd64.tgz"
+    dest: "/usr/local/bin/"
+    remote_src: yes
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Generate CoreDNS file for redir_dns
+  template:
+    src: templates/Corefile.j2
+    dest: "/opt/Corefile"
+    owner: root
+    group: root
+    mode: "0644"
+  when: inventory_hostname == redirector.dns
+
+- name: Generate CoreDNS file for redir_phish
+  template:
+    src: templates/Corefile_phish.j2
+    dest: "/opt/Corefile"
+    owner: root
+    group: root
+    mode: "0644"
+  when: inventory_hostname == redirector.phish

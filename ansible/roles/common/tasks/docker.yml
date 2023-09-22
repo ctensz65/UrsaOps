@@ -1,0 +1,9 @@
+---
+- name: Install docker packages
+  apt:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+      - docker.io
+      - docker-compose

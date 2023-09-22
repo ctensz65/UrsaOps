@@ -1,0 +1,3 @@
+routes:
+  - { id: "1", name: redirhttps, prefix: 0.0.0.0/0 }
+  - { id: "2", name: redirhttps, prefix: "::/0" }

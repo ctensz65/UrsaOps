@@ -1,0 +1,48 @@
+---
+- name: Update the apt package cache
+  apt:
+    update_cache: yes
+  tags:
+    - initial
+
+- name: Install required packages
+  apt:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+      - wget
+      - curl
+      - tar
+      - jq
+      - git
+      - openssl
+      - net-tools
+  tags:
+    - initial
+
+- name: Install and start NTP on Debian/Ubuntu
+  block:
+    - name: Install NTP
+      apt:
+        name: ntp
+        state: present
+        update_cache: yes
+
+    - name: Start and enable NTP
+      service:
+        name: ntp
+        state: started
+        enabled: yes
+
+- name: Set timezone
+  command: timedatectl set-timezone {{ ntp_timezone }}
+
+- name: Ensure the time service is running
+  service:
+    name: "{{ 'ntp' if ansible_os_family == 'Debian' else 'chronyd' }}"
+    state: started
+    enabled: yes
+
+- name: Install tailscale client [Ubuntu]
+  include_tasks: "tailscale.yml"

@@ -1,0 +1,15 @@
+---
+- name: Start teamserver
+  systemd:
+    name: teamserver.service
+    state: started
+
+- name: Reload teamserver
+  systemd:
+    name: teamserver.service
+    state: reload
+
+- name: Stop teamserver
+  systemd:
+    name: teamserver.service
+    state: stopped

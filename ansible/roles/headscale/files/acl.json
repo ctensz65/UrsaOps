@@ -1,0 +1,23 @@
+{
+    "groups": {
+        "tag:redirector": ["100.x.x.x", "100.y.y.y"], 
+        "tag:c2": ["100.z.z.z"] 
+    },
+    "acls": [
+        {
+            "action": "accept",
+            "src": ["group:tag:redirector"],
+            "dst": ["group:tag:c2"]
+        },
+        {
+            "action": "accept",
+            "src": ["group:tag:c2"],
+            "dst": ["group:tag:redirector"]
+        },
+        {
+            "action": "drop",
+            "src": ["any"],
+            "dst": ["any"]
+        }
+    ]
+}

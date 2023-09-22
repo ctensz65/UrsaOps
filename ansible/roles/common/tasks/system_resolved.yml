@@ -1,0 +1,29 @@
+---
+- name: Get content of /etc/resolv.conf
+  slurp:
+    src: /etc/resolv.conf
+  register: resolv_content
+
+- name: Decode resolv.conf content
+  set_fact:
+    resolv_decoded: "{{ resolv_content['content'] | b64decode }}"
+
+- name: Backup current resolv.conf
+  copy:
+    src: /etc/resolv.conf
+    dest: /etc/resolv.conf.backup
+    remote_src: yes
+  when: '"nameserver 8.8.8.8" not in resolv_decoded or "nameserver 8.8.4.4" not in resolv_decoded'
+
+- name: Modify resolv.conf for Google DNS
+  copy:
+    content: |
+      nameserver 8.8.8.8
+      nameserver 8.8.4.4
+    dest: /etc/resolv.conf
+
+- name: Disable and stop systemd-resolved service
+  systemd:
+    name: systemd-resolved
+    enabled: no
+    state: stopped

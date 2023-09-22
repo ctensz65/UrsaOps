@@ -1,0 +1,181 @@
+---
+# - name: Deploy VM Segments
+#   hosts: localhost
+#   connection: local
+#   vars:
+#     terraform_path: "{{ segment_paths[segment] }}"
+#   tasks:
+#     - name: Initialize Terraform
+#       command:
+#         cmd: "terraform init -no-color"
+#         chdir: "{{ terraform_path }}"
+
+#     - name: Plan Terraform changes and output to file
+#       command:
+#         cmd: "terraform plan -out=tfplan -no-color"
+#         chdir: "{{ terraform_path }}"
+#       register: terraform_plan_output
+
+#     - debug:
+#         var: terraform_plan_output.stdout_lines
+
+#     # Pause and ask for manual confirmation
+#     - pause:
+#         prompt: "Review the Terraform plan above. Press enter to continue with apply or Ctrl+C to abort."
+
+#     - name: Apply Terraform using the saved plan
+#       command:
+#         cmd: "terraform apply tfplan -no-color"
+#         chdir: "{{ terraform_path }}"
+#       register: terraform_output
+
+#     - debug:
+#         var: terraform_output.stdout_lines
+#   tags: "terraform_apply"
+
+- name: Deploy VM Segments
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Initialize Terraform for segment {{ item.segment }} on {{ item.cloud }}
+      command:
+        cmd: "terraform init -no-color"
+        chdir: "{{ item.terraform_path }}"
+      loop: "{{ combinations }}"
+      loop_control:
+        label: "{{ item.segment }} on {{ item.cloud }}"
+
+    - name: Plan Terraform changes and output to file for segment {{ item.segment }} on {{ item.cloud }}
+      command:
+        cmd: "terraform plan -out=tfplan -no-color"
+        chdir: "{{ item.terraform_path }}"
+      register: terraform_plans
+      loop: "{{ combinations }}"
+      loop_control:
+        label: "{{ item.segment }} on {{ item.cloud }}"
+
+    - name: Review Terraform Plan
+      debug:
+        var: terraform_plans.results
+      loop: "{{ terraform_plans.results }}"
+      loop_control:
+        label: "{{ item.item.segment }} on {{ item.item.cloud }}"
+
+    # Pause and ask for manual confirmation
+    - pause:
+        prompt: "Review the Terraform plans above. Press enter to continue with apply or Ctrl+C to abort."
+
+    - name: Apply Terraform using the saved plan for segment {{ item.segment }} and cloud {{ item.cloud }}
+      command:
+        cmd: "terraform apply tfplan -no-color"
+        chdir: "{{ item.terraform_path }}"
+      register: terraform_outputs
+      loop: "{{ combinations }}"
+      loop_control:
+        label: "{{ item.segment }} on {{ item.cloud }}"
+
+    - name: Review Terraform Outputs
+      debug:
+        var: terraform_outputs.results
+      loop: "{{ terraform_outputs.results }}"
+      loop_control:
+        label: "{{ item.item.segment }} on {{ item.item.cloud }}"
+  tags: "terraform_apply"
+
+- name: Check Terraform State
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Check Terraform State
+      command:
+        cmd: "terraform plan -no-color"
+        chdir: "{{ segment_paths[segment] }}"
+      register: terraform_output
+
+    - name: Display Terraform plan output
+      debug:
+        msg: "{{ terraform_output.stdout }}"
+  tags: "terraform_state"
+
+- name: Generate Ansible Inventory
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Merge Terraform-generated inventories
+      command:
+        cmd: "python3 generate_inventory.py"
+        chdir: "../"
+  tags: "create_inventory"
+
+# - name: Create Ansible Vault
+#   hosts: localhost
+#   connection: local
+#   tasks:
+#     - name: Initialize Terraform
+#       command:
+#         cmd: "terraform init"
+#         chdir: "./terraform/environment/dev/phishing_segment/"
+#   tags: "create_vault"
+
+- name: Destroy VM segments
+  hosts: localhost
+  connection: local
+  serial: 1
+
+  tasks:
+    - name: Set the segment paths for all
+      set_fact:
+        target_segments: "{{ segment_paths }}"
+      when: segment == 'all'
+
+    - name: Set the segment path for specific segment
+      set_fact:
+        target_segments: { "{{ segment }}": "{{ segment_paths[segment] }}" }
+      when: segment != 'all'
+
+    - name: Initialize Terraform
+      command:
+        cmd: "terraform init "
+        chdir: "{{ item.value }}"
+      loop: "{{ target_segments|dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Plan Terraform destruction and output to file
+      command:
+        cmd: "terraform plan -destroy -out=tfplan "
+        chdir: "{{ item.value }}"
+      loop: "{{ target_segments|dict2items }}"
+      register: terraform_plan_output
+      loop_control:
+        label: "{{ item.key }}"
+
+    - debug:
+        var: terraform_plan_output.stdout_lines
+
+    # Pause and ask for manual confirmation
+    - pause:
+        prompt: "Review the Terraform destroy plan for segment {{ item.key }}. Press enter to continue with destroy or Ctrl+C to abort."
+      loop: "{{ target_segments|dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Apply Terraform destruction using the saved plan
+      command:
+        cmd: "terraform apply tfplan "
+        chdir: "{{ item.value }}"
+      loop: "{{ target_segments|dict2items }}"
+      register: terraform_destroy_output
+      loop_control:
+        label: "{{ item.key }}"
+
+    - debug:
+        msg: "Segment {{ item.item.key }} was successfully destroyed."
+      loop: "{{ terraform_destroy_output.results }}"
+      when: item.rc == 0 # Checking if the command exit code was successful
+
+    - debug:
+        msg: "Segment {{ item.item.key }} failed to destroy. Please review the logs."
+      loop: "{{ terraform_destroy_output.results }}"
+      when: item.rc != 0 # Checking if the command exit code was unsuccessful
+  tags: "terraform_destroy"

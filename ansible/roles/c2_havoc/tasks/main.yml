@@ -1,0 +1,26 @@
+---
+- name: Add the deadsnakes PPA
+  apt_repository:
+    repo: ppa:deadsnakes/ppa
+    state: present
+
+- name: Update apt and install python3.10 and python3.10-dev
+  apt:
+    name:
+      - python3.10
+      - python3.10-dev
+    update_cache: yes
+
+- name: Clone Havoc repository
+  git:
+    repo: https://github.com/HavocFramework/Havoc.git
+    dest: "{{ path_havoc }}"
+    force: yes
+
+- name: Download go dependencies
+  command:
+    cmd: go mod download {{ item }}
+    chdir: "{{ path_havoc }}/teamserver"
+  with_items:
+    - golang.org/x/sys
+    - github.com/ugorji/go

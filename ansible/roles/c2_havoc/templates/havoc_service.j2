@@ -1,0 +1,15 @@
+[Unit]
+Description=Havoc C2 Team Server
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+WorkingDirectory={{ path_havoc }}
+ExecStart={{ path_havoc }}/havoc server --profile ./profiles/{{ profile_havoc }} -v --debug
+
+[Install]
+WantedBy=multi-user.target

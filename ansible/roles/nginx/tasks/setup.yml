@@ -1,0 +1,86 @@
+---
+- name: Ensure errorpage directory exists
+  file:
+    path: /var/www/html/errorpage
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Copy custom error page
+  copy:
+    src: ./asset/{{ item }}
+    dest: /var/www/html/errorpage
+    owner: www-data
+    group: www-data
+    mode: "0644"
+  loop: "{{ custom_error_files }}"
+
+- name: Set user_agent based on c2 value
+  set_fact:
+    user_agent_to_use: "{{ hostvars[inventory_hostname]['user_agent_' ~ c2] }}"
+
+- name: Convert user_agent to Nginx valid format
+  set_fact:
+    user_agent_valid: "{{ user_agent_to_use | regex_replace('([\\.\\(\\)\\;])', '\\\\\\1') }}"
+
+- name: Generate Nginx Site Conf File
+  template:
+    src: "templates/nginx_profile_{{ c2 }}_{{ profile }}.j2"
+    dest: "/etc/nginx/sites-available/{{ domain }}"
+    mode: "0644"
+
+- name: Verify Nginx configuration
+  command:
+    cmd: nginx -t
+  register: nginx_test_output
+  ignore_errors: true
+  changed_when: "'syntax is okay' not in nginx_test_output.stdout"
+  failed_when: "'syntax is okay' not in nginx_test_output.stdout"
+  notify: Reload Nginx
+
+- name: Read Shodan IP list
+  read_csv:
+    path: block_ips.csv
+    fieldnames: ["ip", "name"]
+  register: shodan_ips
+
+- name: Generate Nginx config to block IPs
+  template:
+    src: block_shodan_ips.j2
+    dest: /etc/nginx/conf.d/block_shodan_ips.conf
+
+- name: Check if certificate already exists
+  stat:
+    path: "/etc/letsencrypt/live/{{ domain }}/fullchain.pem"
+  register: cert_file
+
+- name: Generate HTTPS certificate
+  command:
+    cmd: certbot certonly --nginx -d '{{ domain }}' -m {{ email_certbot }} --agree-tos -n --staging
+  when: not cert_file.stat.exists
+
+- name: Find the correct certificate directory
+  find:
+    paths: "/etc/letsencrypt/live/"
+    patterns: "{{ domain }}*"
+  register: cert_directories
+
+- name: Create symlink to the correct certificate directory
+  file:
+    src: "{{ cert_directories.files[0].path }}"
+    dest: "/etc/letsencrypt/live/{{ domain }}"
+    state: link
+  when: cert_directories.matched > 0
+
+- name: Delete Default Configuration
+  file:
+    path: "/etc/nginx/sites-enabled/default"
+    state: absent
+
+- name: Enable Nginx Site
+  file:
+    src: "/etc/nginx/sites-available/{{ domain }}"
+    dest: "/etc/nginx/sites-enabled/{{ domain }}"
+    state: link
+  notify: Reload Nginx

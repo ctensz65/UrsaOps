@@ -1,0 +1,22 @@
+---
+- name: Ensure havoc directory exists
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ path_havoc }}"
+    - "{{ path_havoc }}/profiles"
+  register: directory_check
+
+- name: Set a fact if both directories are present
+  set_fact:
+    all_dirs_exist: true
+  when:
+    - "'{{ path_havoc }}' in directory_check.results[0].path and directory_check.results[0].state == 'directory'"
+    - "'{{ path_havoc }}/profiles' in directory_check.results[1].path and directory_check.results[1].state == 'directory'"
+
+- name: Build Havoc Client using Makefile
+  make:
+    chdir: "{{ path_havoc }}"
+    target: client-build
+  when: all_dirs_exist | default(false)

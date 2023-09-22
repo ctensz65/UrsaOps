@@ -1,0 +1,16 @@
+---
+- name: Install Nginx
+  apt:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+      - nginx
+
+- name: Enable Nginx
+  command:
+    cmd: systemctl enable nginx
+
+- name: Start Nginx
+  command:
+    cmd: systemctl start nginx

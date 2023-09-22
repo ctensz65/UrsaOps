@@ -1,0 +1,98 @@
+{## ==================== Azure ==================== ##}
+{%- macro azure_instance_module(suffix, data, inbound, current_index=None) %}
+module "{{ suffix }}" {
+  source              = "{{ provider_module_path }}"
+  resource_group_name = "segment_c2_resources"
+  instance_name       = "{{ suffix }}"
+  computer_name       = "{{ data.vm_hostname }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
+  username_vm         = "{{ data.vm_username }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
+  vm_size             = "Standard_B1s"
+  tags_segment        = "{{ suffix }}"
+  inbound_rules       = {{ inbound | tojson }}
+}
+{% endmacro -%}
+{## ==================== AWS ==================== ##}
+{% macro aws_instance_module(suffix, data, ingress_rules, current_index=None) %}
+module "{{ suffix }}" {
+  source              = "{{ provider_module_path }}"
+  instance_name       = "{{ suffix }}"
+  tag_name            = "{{ suffix }}"
+  computer_name       = "{{ data.vm_hostname }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
+  username_vm         = "{{ data.vm_username }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
+  
+  ingress_rules       = {{ ingress_rules | tojson }}
+
+  egress_rules = {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+{% endmacro -%}
+{%- set https_data = c2_data.redir_https %}
+{## ==================== Azure ==================== ##}
+{%- if c2_data.provider == "azure" -%}
+  {% set provider_module_path = "../../modules/azure" %}
+{% set https_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "443", "protocol": "Tcp" }, { "port": "80", "protocol": "Tcp" }] %}
+  {% for _ in range(https_data.count) %}
+{{ azure_instance_module('redir_https' + ('_' + loop.index|string if https_data.count > 1 else ''), https_data, https_inbound, loop.index if https_data.count > 1 else None) }}
+  {% endfor %}
+
+{%- if c2_data.get('redir_dns') %}
+{% set dns_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "53", "protocol": "Udp" }] %}
+{{ azure_instance_module('redir_dns', c2_data.redir_dns, dns_inbound) }}
+{%- endif %}
+
+{% set srv_inbound = [{ "port": "22", "protocol": "Tcp" }] %}
+{{ azure_instance_module('c2_srv', c2_framework, srv_inbound) }}
+
+{## ==================== AWS ==================== ##}
+{%- elif c2_data.provider == "aws" -%}
+  {% set provider_module_path = "../../modules/aws" %}
+{% set https_inbound = [
+    { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] },
+    { "from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] }
+  ]
+%}
+  {% for _ in range(https_data.count) %}
+{{ aws_instance_module('redir_https' + ('_' + loop.index|string if https_data.count > 1 else ''), https_data, https_inbound, loop.index if https_data.count > 1 else None) }}
+  {% endfor %}
+
+{%- if c2_data.get('redir_dns') %}
+{% set dns_inbound = [
+    { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] },
+    { "from_port": 53, "to_port": 53, "protocol": "udp", "cidr_blocks": ["0.0.0.0/0"] }  
+  ] 
+%}
+{{ aws_instance_module('redir_dns', c2_data.redir_dns, dns_inbound) }}
+{%- endif %}
+
+{% set c2_inbound = [
+    { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] }  
+  ] 
+%}
+{{ aws_instance_module('c2_srv', c2_framework, c2_inbound) }}
+{% endif -%}
+
+locals {
+  c2_instances = [
+{% for _ in range(https_data.count) %}
+    module.redir_https{% if https_data.count > 1 %}_{{ loop.index }}{% endif %}.instance_details,
+{% endfor %}
+{%- if c2_data.get('redir_dns') %}
+    module.redir_dns.instance_details,
+{% endif %}
+    module.c2_srv.instance_details
+  ]
+
+  inventory_content = templatefile("${path.module}/../../../templates/terraform_main/inventory.tpl", {
+    c2_instances = local.c2_instances
+  })
+}
+
+resource "local_file" "ansible_inventory" {
+  content  = local.inventory_content
+  filename = "${path.root}/inventory.ini"
+}
+

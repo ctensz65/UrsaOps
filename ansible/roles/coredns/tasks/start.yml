@@ -1,0 +1,16 @@
+---
+- name: Check if CoreDNS is running
+  command: pgrep coredns
+  register: coredns_process
+  failed_when: coredns_process.rc > 1
+  changed_when: false
+
+- name: Kill caddy if it's running
+  command: kill -9 {{ coredns_process.stdout }}
+  when:
+    - coredns_process.rc == 0
+
+- name: Start CoreDNS
+  shell: nohup coredns > /var/log/coredns.log 2>&1 &
+  args:
+    chdir: "/opt/"

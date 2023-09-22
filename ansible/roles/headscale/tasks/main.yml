@@ -1,0 +1,38 @@
+---
+- name: Ensure the headscale directory is removed
+  file:
+    path: /opt/headscale/
+    state: absent
+
+- name: Create headscale config directory
+  file:
+    path: /opt/headscale/config
+    state: directory
+
+- name: Create db.sqlite file
+  file:
+    path: /opt/headscale/config/db.sqlite
+    state: touch
+
+- name: Generate Headscale Config File
+  template:
+    src: templates/config.j2
+    dest: /opt/headscale/config/config.yaml
+
+- name: Generate Docker Compose file from template
+  template:
+    src: templates/headscale_docker_compose.j2
+    dest: /opt/headscale/docker-compose.yaml
+
+- name: Run docker-compose up
+  command:
+    cmd: docker-compose up -d
+    chdir: /opt/headscale
+
+- name: Generate Caddyfile
+  template:
+    src: templates/caddy_revproxy.j2
+    dest: "/opt/Caddyfile"
+    mode: "0644"
+  tags:
+    - generate_caddyfile

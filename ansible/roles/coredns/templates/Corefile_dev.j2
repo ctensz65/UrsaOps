@@ -1,0 +1,21 @@
+{{ dns_subdomain }} {
+    errors
+    log
+    ratelimit 10
+    cache 30
+    forward . tls://{{ ip_tailscale_c2 }} {
+        health_check 5s
+    }
+}
+
+. {
+    # Handle all other queries
+    whoami
+    errors
+    log
+    ratelimit 10
+    dnssec
+    cache 30
+}
+
+prometheus :9153

@@ -1,0 +1,54 @@
+---
+# - name: Ensure make is installed
+#   apt:
+#     name: make
+#     state: present
+#   become: yes
+
+# - name: Ensure havoc directory exists
+#   file:
+#     path: "{{ item }}"
+#     state: directory
+#   with_items:
+#     - "{{ path_havoc }}"
+#     - "{{ path_havoc }}/profiles"
+#   register: directory_check
+
+# - name: Set a fact if both directories are present
+#   set_fact:
+#     all_dirs_exist: true
+#   when:
+#     - "'{{ path_havoc }}' in directory_check.results[0].path and directory_check.results[0].state == 'directory'"
+#     - "'{{ path_havoc }}/profiles' in directory_check.results[1].path and directory_check.results[1].state == 'directory'"
+
+# - name: Build Havoc using Makefile
+#   make:
+#     chdir: "{{ path_havoc }}"
+#     target: ts-build
+#   when: all_dirs_exist | default(false)
+
+- name: Generate Havoc teamserver service
+  template:
+    src: templates/havoc_service.j2
+    dest: "/etc/systemd/system/teamserver.service"
+    mode: "0644"
+
+- name: Reload systemctl daemon
+  systemd:
+    daemon_reload: yes
+
+- name: Check status of teamserver.service
+  command:
+    cmd: systemctl status teamserver.service
+  ignore_errors: yes
+  register: teamserver_status_output
+
+- name: Display teamserver.service status
+  debug:
+    var: teamserver_status_output.stdout_lines
+  notify: Start teamserver
+
+- name: Start Teamserver
+  command: echo "[+] Starting havoc teamserver"
+  notify: Start teamserver
+  changed_when: true

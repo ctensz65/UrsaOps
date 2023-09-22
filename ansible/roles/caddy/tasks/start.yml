@@ -1,0 +1,13 @@
+---
+- name: Check if Caddyserver is running
+  command: pgrep caddy
+  register: caddy_process
+  failed_when: caddy_process.rc > 1
+  changed_when: false
+
+- name: Kill caddy if it's running
+  command: kill -9 {{ caddy_process.stdout }}
+  when: caddy_process.rc == 0
+
+- name: Start Caddyserver
+  shell: nohup caddy run --config /var/lib/Caddyfile > /dev/null 2>&1 &

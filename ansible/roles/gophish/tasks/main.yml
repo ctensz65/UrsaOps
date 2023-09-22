@@ -1,0 +1,30 @@
+---
+- name: Clone gophish-docker repository
+  git:
+    repo: "https://github.com/cisagov/gophish-docker.git"
+    dest: "{{ path_dir_gophish }}"
+    clone: yes
+    update: no
+
+- name: Build Gophish Docker image with specified version
+  command:
+    cmd: docker-compose build --build-arg VERSION={{ build_version }}
+    chdir: "{{ path_dir_gophish }}"
+  register: build_result
+  changed_when: "'Successfully built' in build_result.stdout"
+
+- name: Transfer certificates and gophish config
+  copy:
+    src: "files/{{ item }}"
+    dest: "{{ path_dir_gophish }}/src/secrets/{{ item }}"
+    mode: "0644"
+  loop:
+    - admin_fullchain.pem
+    - admin_privkey.pem
+
+- name: Run Gophish Docker Compose
+  docker_compose:
+    project_src: "{{ path_dir_gophish }}"
+    pull: yes
+    state: present
+    restarted: yes

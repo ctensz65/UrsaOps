@@ -1,0 +1,80 @@
+---
+- name: Install Docker at Backend Server
+  hosts: phish_srv
+  become: yes
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: docker
+  tags:
+    - install_docker
+
+- name: Install Certbot at Redirector
+  hosts: redir_phish
+  become: yes
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: certbot
+  tags:
+    - certbot
+
+- name: Install and Setup Apache2 for Redirector
+  hosts: redir_phish
+  become: yes
+  tasks:
+    - include_role:
+        name: apache2
+        tasks_from: main
+  tags:
+    - setup_apache2
+
+- name: Setup CoreDNS to Create DNS Forwarder
+  hosts: redir_phish
+  become: yes
+  tasks:
+    - include_role:
+        name: coredns
+        tasks_from: main
+  tags:
+    - setup_coredns
+
+- name: Setup GoPhish
+  hosts: phish_srv
+  become: yes
+  tasks:
+    - include_role:
+        name: gophish
+        tasks_from: main
+  tags:
+    - setup_gophish
+
+- name: Setup Evilginx
+  hosts: phish_srv
+  become: yes
+  tasks:
+    - include_role:
+        name: evilginx3
+        tasks_from: main
+  tags:
+    - setup_evilginx
+
+- name: Disable System Resolved Service
+  hosts: redir_phish
+  become: yes
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: system_resolved
+  tags:
+    - disable_resolved
+
+- name: Start CoreDNS
+  hosts: redir_phish
+  become: yes
+  tasks:
+    - include_role:
+        name: coredns
+        tasks_from: start
+  tags:
+    - start_coredns

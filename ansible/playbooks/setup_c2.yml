@@ -1,0 +1,141 @@
+---
+- name: Install Nginx Service
+  hosts: g_redir_https
+  become: yes
+  roles:
+    - role: nginx
+  tags:
+    - setup_nginx
+
+- name: Install Certbot
+  hosts: g_redir_https
+  become: yes
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: certbot
+  tags:
+    - certbot
+
+- name: Setup Nginx Reverse Proxy for C2 Redirector
+  hosts: g_redir_https
+  become: yes
+  tasks:
+    - include_role:
+        name: nginx
+        tasks_from: setup
+  tags:
+    - setup_redir
+
+- name: Setup CoreDNS for DNS Redirector
+  hosts: redir_dns
+  become: yes
+  tasks:
+    - include_role:
+        name: coredns
+        tasks_from: main
+      when: redirdns == 'true'
+  tags:
+    - setup_coredns
+
+- name: Generate Keystore for CS
+  hosts: g_redir_https
+  become: yes
+  tasks:
+    - include_role:
+        name: nginx
+        tasks_from: keystore_cs
+      when: c2 == 'cobalt'
+  tags:
+    - keystore_cs
+
+- name: Copy Let's Encrypt Certificates for Sliver C2
+  hosts: g_redir_https
+  become: yes
+  tasks:
+    - name: Copy Let's Encrypt fullchain.pem for Sliver
+      fetch:
+        src: /etc/letsencrypt/live/{{ domain }}/fullchain.pem
+        dest: ./roles/c2_sliver/files/cert.pem
+        flat: yes
+        mode: "0644"
+      when: c2 == 'sliver'
+
+    - name: Copy Let's Encrypt privkey.pem for Sliver
+      fetch:
+        src: /etc/letsencrypt/live/{{ domain }}/privkey.pem
+        dest: ./roles/c2_sliver/files/key.pem
+        flat: yes
+        mode: "0600"
+      when: c2 == 'sliver'
+  tags:
+    - cert_sliver
+
+- name: Setup C2 [Cobalt Strike 4.7]
+  hosts: c2_srv
+  become: yes
+  tasks:
+    - include_role:
+        name: c2_cobalt
+        tasks_from: main
+      when: c2 == 'cobalt'
+  tags:
+    - setup_cs
+
+- name: Setup C2 [Havoc]
+  hosts: c2_srv
+  become: yes
+  vars:
+    go_version_18: true
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: go
+      when: c2 == 'havoc'
+    - include_role:
+        name: c2_havoc
+        tasks_from: main
+      when: c2 == 'havoc'
+    - include_role:
+        name: c2_havoc
+        tasks_from: teamserver
+      when: c2 == 'havoc'
+  tags:
+    - setup_havoc
+
+- name: Setup C2 [Sliver]
+  hosts: c2_srv
+  become: yes
+  tasks:
+    - include_role:
+        name: c2_sliver
+        tasks_from: main
+      when: c2 == 'sliver'
+  tags:
+    - setup_sliver
+
+- name: Disable System Resolved Service
+  hosts: redir_dns
+  become: yes
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: system_resolved
+      when:
+        - redirdns == 'true'
+        - c2 == 'sliver'
+  tags:
+    - disable_resolved
+
+- name: Start CoreDNS
+  hosts: redir_dns
+  become: yes
+  tasks:
+    - include_role:
+        name: coredns
+        tasks_from: start
+      when:
+        - redirdns == 'true'
+        - c2 == 'sliver'
+  tags:
+    - start_coredns

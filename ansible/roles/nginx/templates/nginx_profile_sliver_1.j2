@@ -1,0 +1,76 @@
+{# note:
+    Default Sliver Profiles:
+    User-agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.39 Safari/537.36 Brave/75
+    URI-based filter /status/admin/metadata/
+    Custom Authorization Header 
+#}
+
+map $http_authorization $auth_check {
+    default                 0;
+    "{{ auth_header }}" 1;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name {{ domain }};
+    root /var/www/html;
+    
+    ssl_certificate /etc/letsencrypt/live/{{ domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ domain }}/privkey.pem;
+    ssl_protocols TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Content-Security-Policy "default-src 'self';" always;
+    add_header Referrer-Policy "no-referrer" always;
+
+    # Remove Nginx version
+    server_tokens off;
+    proxy_hide_header Server;
+
+    location / {
+        try_files $uri $uri/ /errorpage/error.html;
+    }
+
+    # Error handling
+    error_page 400 401 402 403 404 405 406 407 408 409 410 411 412 413 414 415 416 417 418 420 422 423 424 426 428 429 431 444 449 450 451 500 501 502 503 504 505 506 507 508 509 510 511 /errorpage/error.html;
+
+    # Beacon specific routes
+    location ~ ^/{{ uri_path }}/ {
+        if ($http_user_agent !~* "^{{ user_agent_valid }}$") {
+            return 403;
+        }
+
+        # Check the Authorization header
+        if ($auth_check = 0) {
+            return 403;
+        }
+
+        if ($http_user_agent ~* (malicious|sandbox|bot) ) {
+            return 403;
+        }
+
+        if ($http_user_agent ~* (nmap|nikto|w3af|wikto|acunetix) ) {
+            return 403;
+        }
+
+        if ($http_user_agent ~* '(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino') {
+            return 403;
+        }
+        
+        proxy_pass          https://{{ domain_c2_local }};
+        proxy_set_header    Host                $host;
+        proxy_set_header    X-Forwarded-For     $proxy_add_x_forwarded_for;
+        proxy_set_header    User-Agent          "${http_user_agent} - Original IP ${remote_addr}";
+    }
+
+    # Deny access to certain locations
+    location ~ /\. {
+        deny all;
+    }
+}

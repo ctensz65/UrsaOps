@@ -1,0 +1,43 @@
+---
+- name: Get routes list from headscale in YAML format
+  command:
+    cmd: docker exec headscale headscale routes list -o yaml
+    chdir: /opt/headscale
+    creates: routes.yaml # Only run this if routes.yaml doesn't exist
+  register: headscale_routes_output
+
+- name: Write output to routes.yaml
+  copy:
+    content: "{{ headscale_routes_output.stdout }}"
+    dest: "/tmp/routes.yaml"
+
+- name: Slurp routes.yaml from remote machine
+  slurp:
+    src: /tmp/routes.yaml
+  register: slurp_routes
+
+- name: Decode and set the routes variable
+  set_fact:
+    routes: "{{ slurp_routes['content'] | b64decode | from_yaml }}"
+
+- name: Filter out records based on 'advertised == true' and set to a new variable
+  set_fact:
+    filtered_routes: >-
+      {{ filtered_routes | default([]) +
+        [{'id': item.id | string, 'name': item.machine.name, 'prefix': item.prefix}]
+      }}
+  loop: "{{ routes }}"
+  when: item.advertised
+
+- name: Create the output YAML file
+  copy:
+    content: "{{ {'routes': filtered_routes} | to_yaml }}"
+    dest: ./roles/headscale/files/routes.yml
+  delegate_to: localhost
+  become: false
+
+- name: Enable exit nodes
+  command:
+    cmd: docker exec headscale headscale routes enable -r {{ item.id }}
+    chdir: /opt/headscale
+  loop: "{{ filtered_routes }}"

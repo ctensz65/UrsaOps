@@ -1,0 +1,12 @@
+{{ dns_subdomain }} {
+    errors
+    log
+    forward . {{ ip_tailscale_c2 }}
+}
+
+. {
+    # Handle all other queries
+    whoami
+    ratelimit 10
+    cache 30
+}

@@ -1,0 +1,132 @@
+---
+- name: Add DNS entry to /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: "srv.local {{ local_ip_phishsrv }}"
+    regexp: '^srv\.local'
+    state: present
+
+- name: Ensure errorpage directory exists
+  file:
+    path: /var/www/html/errorpage
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Copy custom error page
+  copy:
+    src: ./asset/{{ item }}
+    dest: /var/www/html/errorpage
+    owner: www-data
+    group: www-data
+    mode: "0644"
+  loop: "{{ custom_error_files }}"
+
+- name: Enable Apache2 modules
+  command: a2enmod {{ item }}
+  loop:
+    - rewrite
+    - headers
+    - ssl
+    - proxy
+    - proxy_http
+  notify: Reload Apache
+
+- name: Generate apache2 Site Conf File
+  template:
+    src: "templates/000-default.j2"
+    dest: "/etc/apache2/sites-available/000-default.conf"
+
+- name: Copy redirect.rules from localmachine
+  copy:
+    src: "files/redirect.rules"
+    dest: "/etc/apache2/redirect.rules"
+
+- name: Check if ports.conf exists
+  stat:
+    path: /etc/apache2/ports.conf
+  register: ports_file
+
+- name: Get contents of ports.conf
+  slurp:
+    src: /etc/apache2/ports.conf
+  register: file_contents
+  when: ports_file.stat.exists
+
+- name: Decode file_contents
+  set_fact:
+    decoded_contents: "{{ file_contents['content'] | b64decode }}"
+  when: ports_file.stat.exists
+
+- name: Ensure 'Listen 80' does not exist in ports.conf
+  lineinfile:
+    path: /etc/apache2/ports.conf
+    line: "Listen 8080"
+    insertafter: EOF
+  when: "'Listen 80' not in decoded_contents"
+
+- name: Change 'Listen 80' to 'Listen 8080' in ports.conf
+  replace:
+    path: /etc/apache2/ports.conf
+    regexp: "^Listen 80$"
+    replace: "Listen 8080"
+  when: "'Listen 80' in decoded_contents"
+
+- name: Check if certificate already exists
+  stat:
+    path: "/etc/letsencrypt/live/{{ domain_phish }}/fullchain.pem"
+  register: cert_file
+
+- name: Obtain Let's Encrypt certificate using Manual DNS
+  command: >
+    certbot certonly
+    --manual
+    --preferred-challenges=dns
+    -d '{{ domain_phish }}' -d '*.{{ domain_phish }}'
+    --agree-tos
+    -m {{ email_certbot }}
+    --no-eff-email
+    -server https://acme-v02.api.letsencrypt.org/directory
+  when: not cert_file.stat.exists
+#
+# - name: Obtain Let's Encrypt certificate using the Cloudflare DNS plugin
+#   command:
+#     cmd: >
+#       certbot certonly
+#       --dns-cloudflare
+#       --dns-cloudflare-credentials {{ path_cloudflare.ini }}
+#       --email {{ email_certbot }}
+#       --server https://acme-v02.api.letsencrypt.org/directory
+#       --agree-tos
+#       -d '*.{{ domain_phish }}' -d '{{ domain_phish }}'
+
+- name: Find the correct certificate directory
+  find:
+    paths: "/etc/letsencrypt/live/"
+    patterns: "{{ domain_phish }}*"
+  register: cert_directories
+
+- name: Create symlink to the correct certificate directory
+  file:
+    src: "{{ cert_directories.files[0].path }}"
+    dest: "/etc/letsencrypt/live/{{ domain_phish }}"
+    state: link
+  when: cert_directories.matched > 0
+
+- name: Fetch fullchain.key and priv.key
+  fetch:
+    src: "/etc/letsencrypt/live/{{ domain_phish }}/{{ item }}"
+    dest: ./roles/gophish/files/admin_{{ item }}
+    flat: yes
+  loop:
+    - fullchain.pem
+    - privkey.pem
+
+- name: Check Apache configuration
+  command: apachectl configtest
+  register: result
+  changed_when: False
+  failed_when:
+    - "'Syntax OK' not in result.stderr_lines"
+  notify: Reload Apache

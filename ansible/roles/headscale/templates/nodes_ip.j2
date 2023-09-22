@@ -1,0 +1,6 @@
+ip_tailscale:
+{% for item in ip_tailscale %}
+  - hostname: "{{ item.hostname }}"
+    ip: "{{ item.ip }}"
+    user: "{{ item.user }}"
+{% endfor %}

@@ -1,0 +1,35 @@
+---
+- name: Get nodes list from headscale in YAML format
+  command:
+    cmd: docker exec headscale headscale nodes list -o yaml
+    chdir: /opt/headscale
+    creates: nodes.yaml # Only run this if nodes.yaml doesn't exist
+  register: headscale_nodes_output
+
+- name: Write output to nodes.yaml
+  copy:
+    content: "{{ headscale_nodes_output.stdout }}"
+    dest: "/tmp/nodes.yaml"
+
+- name: Slurp nodes.yaml from remote machine
+  slurp:
+    src: /tmp/nodes.yaml
+  register: slurp_nodes
+
+- name: Decode and set the nodes variable
+  set_fact:
+    nodes: "{{ (slurp_nodes['content'] | b64decode) | from_yaml }}"
+
+- name: Create ip_tailscale list
+  set_fact:
+    ip_tailscale: >-
+      {{ ip_tailscale|default([]) +
+      [{'hostname': item.name, 'ip': item.ipaddresses|select('search', '100.')|first, 'user': item.user.name }] }}
+  loop: "{{ nodes }}"
+
+- name: Generate nodes.yaml file from ip_tailscale list
+  template:
+    src: nodes_ip.j2
+    dest: ./roles/headscale/files/nodes.yml
+  delegate_to: localhost
+  become: false

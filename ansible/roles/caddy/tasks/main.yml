@@ -1,0 +1,15 @@
+- name: Download Caddy Server
+  get_url:
+    url: https://github.com/caddyserver/caddy/releases/download/v2.7.3/caddy_2.7.3_linux_amd64.tar.gz
+    dest: /tmp/caddy_2.7.3_linux_amd64.tar.gz
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Extract Caddy
+  unarchive:
+    src: "/tmp/caddy_2.7.3_linux_amd64.tar.gz"
+    dest: "/usr/local/bin/"
+    remote_src: yes
+    owner: root
+    group: root
+    mode: "0755"
