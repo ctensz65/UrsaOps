@@ -1,0 +1,1 @@
+{"event": "verbose", "uuid": "edef2bf5-094c-4889-aec2-89d0ca439b58", "counter": 8, "stdout": "issue: '/../../terraform/engagement_2' is not a directory", "start_line": 7, "end_line": 8, "runner_ident": "2568407c-aa9f-411b-ac9c-5e98a213d298", "created": "2023-09-23T13:34:29.319511"}

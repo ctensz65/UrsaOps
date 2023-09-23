@@ -1,0 +1,47 @@
+general:
+  project_name: "engagement_2"
+  ntp_timezone: "Asia/Jakarta"
+  region: southeast-asia
+  vault_path:
+headscale:
+  provider: aws
+  vm_username: ops
+  vm_hostname: winning
+  setup:
+    dns_provider: cloudflare
+    domain: subengexpo.net
+    base_domain_local: redteam.local
+    jump_host: true
+    exp_time_preauthkeys: 55m
+    user_client: [redirector, c2_srv, phish_srv, jumphost]
+segment_c2:
+  provider: azure
+  dns_provider:
+  redir_https:
+    count: 2
+    domain: redteam.com, redteam1.com
+    vm_hostname: redir_https
+    vm_username: node
+  redir_dns:
+    vm_username:
+  framework:
+    vm_hostname:
+    vm_username:
+    sliver:
+      version:
+      user_agent:
+      uri_path:
+segment_phish:
+  provider: aws
+  domain: asu.com
+  dns_provider: asu
+  server:
+    vm_hostname: user
+    vm_username:
+  redir:
+    vm_hostname:
+    vm_username:
+  evilginx:
+    redirect_url:
+    path_lures:
+    phishlets:

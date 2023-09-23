@@ -4,6 +4,8 @@
 ## Secret
 ansible/vault/*
 .vscode
+*.pem
+*.p12
 
 ### Ansible ###
 *.retry

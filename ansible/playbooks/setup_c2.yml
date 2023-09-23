@@ -1,6 +1,6 @@
 ---
 - name: Install Nginx Service
-  hosts: g_redir_https
+  hosts: group_redir_https
   become: yes
   roles:
     - role: nginx
@@ -8,7 +8,7 @@
     - setup_nginx
 
 - name: Install Certbot
-  hosts: g_redir_https
+  hosts: group_redir_https
   become: yes
   tasks:
     - include_role:
@@ -18,7 +18,7 @@
     - certbot
 
 - name: Setup Nginx Reverse Proxy for C2 Redirector
-  hosts: g_redir_https
+  hosts: group_redir_https
   become: yes
   tasks:
     - include_role:
@@ -39,7 +39,7 @@
     - setup_coredns
 
 - name: Generate Keystore for CS
-  hosts: g_redir_https
+  hosts: group_redir_https
   become: yes
   tasks:
     - include_role:
@@ -50,7 +50,7 @@
     - keystore_cs
 
 - name: Copy Let's Encrypt Certificates for Sliver C2
-  hosts: g_redir_https
+  hosts: group_redir_https
   become: yes
   tasks:
     - name: Copy Let's Encrypt fullchain.pem for Sliver
@@ -78,6 +78,17 @@
     - include_role:
         name: c2_cobalt
         tasks_from: main
+      when: c2 == 'cobalt'
+  tags:
+    - setup_cs
+
+- name: Setup CobaltStrike - Teamserver
+  hosts: c2_srv
+  become: yes
+  tasks:
+    - include_role:
+        name: c2_cobalt
+        tasks_from: teamserver
       when: c2 == 'cobalt'
   tags:
     - setup_cs

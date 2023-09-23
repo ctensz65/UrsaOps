@@ -1,4 +1,2 @@
-# UrsaOps Python Requirements
-
-PyYAML==5.4.1
-Jinja2==3.1.2
+PyYAML
+Jinja2

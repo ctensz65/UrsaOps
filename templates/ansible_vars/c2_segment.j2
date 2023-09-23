@@ -1,14 +1,14 @@
-{% if c2_data is not none -%}
+{% if c2_data is not none %}
 ## ========= General ========= ##
-{%- set redir_https_data = c2_data.redir_https -%}
-{%- if redir_https_data.count == 1 %}
+{% set redir_https_data = c2_data.redir_https %}
+{% if redir_https_data.count == 1 %}
 domain: {{  redir_https_data.domain }}
-{%- elif redir_https_data.count > 1 %}
+{% elif redir_https_data.count > 1 %}
 redir_https: 2
 domain: [{{  redir_https_data.domain }}]
 {% endif -%}
 domain_c2_local: c2server.local
-{%- if c2_data.get('redir_dns') %}
+{% if c2_data.get('redir_dns') %}
 dns_subdomain: {{ c2_data.redir_dns.subdomain }}
 {% endif -%}
 ip_tailscale_c2: ""

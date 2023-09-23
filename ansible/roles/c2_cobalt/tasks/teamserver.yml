@@ -1,0 +1,76 @@
+---
+- name: Ensure cobaltstrike47 directory
+  file:
+    path: /opt/cobaltstrike47
+    state: directory
+
+- name: Transfer keystore.p12
+  copy:
+    src: files/keystore.p12
+    dest: /opt/cobaltstrike47/keystore.p12
+
+- name: Remove Keystore files
+  file:
+    path: "/opt/cobaltstrike47/{{ keystore_alias }}.store"
+    state: absent
+
+- name: Convert PKCS12 to Java Keystore
+  shell: >
+    keytool -importkeystore
+    -destkeystore /opt/cobaltstrike47/{{ keystore_alias }}.store
+    -deststorepass {{ jks_password }}
+    -destkeypass {{ jks_password }} 
+    -srckeystore /opt/cobaltstrike47/{{ keystore_alias }}.p12
+    -srcstoretype PKCS12
+    -alias {{ keystore_alias }}
+    -srcstorepass {{ pkcs12_password }}
+
+- name: Download malleable profiles
+  git:
+    repo: "https://github.com/BC-SECURITY/Malleable-C2-Profiles.git"
+    dest: "/opt/cobaltstrike47/c2-profiles"
+    clone: yes
+    update: yes
+    force: yes
+
+- name: Add configuration to webbug-getonly
+  blockinfile:
+    path: /opt/cobaltstrike47/c2-profiles/{{ c2_profile }}
+    block: |
+      set useragent "{{ user_agent }}";
+
+      https-certificate {
+           set keystore "{{ keystore_alias }}.store";
+           set password "{{ jks_password }}";
+      }
+    insertbefore: BOF # Insert at the beginning of the file
+  run_once: yes
+
+- name: Generate teamserver service
+  template:
+    src: templates/cs_service.j2
+    dest: "/etc/systemd/system/teamserver.service"
+    mode: "0644"
+
+- name: Reload systemctl daemon
+  systemd:
+    daemon_reload: yes
+
+- name: Check status of teamserver.service
+  command:
+    cmd: systemctl status teamserver.service
+  ignore_errors: yes
+  register: teamserver_status_output
+
+- name: Display teamserver.service status
+  debug:
+    var: teamserver_status_output.stdout_lines
+
+- name: Start teamserver.service
+  systemd:
+    name: teamserver.service
+    state: started
+# - name: Enable teamserver.service to start on boot
+#   systemd:
+#     name: teamserver.service
+#     enabled: yes

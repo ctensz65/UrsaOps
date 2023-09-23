@@ -1,85 +1,32 @@
 ---
-# - name: Deploy VM Segments
-#   hosts: localhost
-#   connection: local
-#   vars:
-#     terraform_path: "{{ segment_paths[segment] }}"
-#   tasks:
-#     - name: Initialize Terraform
-#       command:
-#         cmd: "terraform init -no-color"
-#         chdir: "{{ terraform_path }}"
-
-#     - name: Plan Terraform changes and output to file
-#       command:
-#         cmd: "terraform plan -out=tfplan -no-color"
-#         chdir: "{{ terraform_path }}"
-#       register: terraform_plan_output
-
-#     - debug:
-#         var: terraform_plan_output.stdout_lines
-
-#     # Pause and ask for manual confirmation
-#     - pause:
-#         prompt: "Review the Terraform plan above. Press enter to continue with apply or Ctrl+C to abort."
-
-#     - name: Apply Terraform using the saved plan
-#       command:
-#         cmd: "terraform apply tfplan -no-color"
-#         chdir: "{{ terraform_path }}"
-#       register: terraform_output
-
-#     - debug:
-#         var: terraform_output.stdout_lines
-#   tags: "terraform_apply"
-
-- name: Deploy VM Segments
+- name: Run Terraform on all segments
   hosts: localhost
-  connection: local
+  gather_facts: False
   tasks:
-    - name: Initialize Terraform for segment {{ item.segment }} on {{ item.cloud }}
-      command:
-        cmd: "terraform init -no-color"
-        chdir: "{{ item.terraform_path }}"
-      loop: "{{ combinations }}"
-      loop_control:
-        label: "{{ item.segment }} on {{ item.cloud }}"
+    - name: Find all main.tf files
+      find:
+        paths: "../../terraform/{{ project_name }}"
+        patterns: "main.tf"
+        recurse: yes
+      register: main_tf_files
 
-    - name: Plan Terraform changes and output to file for segment {{ item.segment }} on {{ item.cloud }}
-      command:
-        cmd: "terraform plan -out=tfplan -no-color"
-        chdir: "{{ item.terraform_path }}"
-      register: terraform_plans
-      loop: "{{ combinations }}"
-      loop_control:
-        label: "{{ item.segment }} on {{ item.cloud }}"
-
-    - name: Review Terraform Plan
-      debug:
-        var: terraform_plans.results
-      loop: "{{ terraform_plans.results }}"
-      loop_control:
-        label: "{{ item.item.segment }} on {{ item.item.cloud }}"
-
-    # Pause and ask for manual confirmation
-    - pause:
-        prompt: "Review the Terraform plans above. Press enter to continue with apply or Ctrl+C to abort."
-
-    - name: Apply Terraform using the saved plan for segment {{ item.segment }} and cloud {{ item.cloud }}
-      command:
-        cmd: "terraform apply tfplan -no-color"
-        chdir: "{{ item.terraform_path }}"
-      register: terraform_outputs
-      loop: "{{ combinations }}"
-      loop_control:
-        label: "{{ item.segment }} on {{ item.cloud }}"
-
-    - name: Review Terraform Outputs
-      debug:
-        var: terraform_outputs.results
-      loop: "{{ terraform_outputs.results }}"
-      loop_control:
-        label: "{{ item.item.segment }} on {{ item.item.cloud }}"
+    - name: Execute Terraform init on each segment
+      command: "terraform init"
+      args:
+        chdir: "{{ item | dirname }}"
+      loop: "{{ main_tf_files.files | map(attribute='path') | list }}"
+    
+    - name: Execute Terraform plan on each segment
+      command: "terraform plan -out=plan.out"
+      args:
+        chdir: "{{ item | dirname }}"
+      loop: "{{ main_tf_files.files | map(attribute='path') | list }}"
+    
+    # - name: Execute Terraform apply on each segment
+    #   command: "terraform apply -auto-approve plan.out"
+    #   args:
+    #     chdir: "{{ item | dirname }}"
+    #   loop: "{{ main_tf_files.files | map(attribute='path') | list }}"
   tags: "terraform_apply"
 
 - name: Check Terraform State

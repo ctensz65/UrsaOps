@@ -33,13 +33,13 @@ module "{{ suffix }}" {
 {%- set https_data = c2_data.redir_https %}
 {## ==================== Azure ==================== ##}
 {%- if c2_data.provider == "azure" -%}
-  {% set provider_module_path = "../../modules/azure" %}
+  {% set provider_module_path = "../../../modules/azure" %}
 {% set https_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "443", "protocol": "Tcp" }, { "port": "80", "protocol": "Tcp" }] %}
   {% for _ in range(https_data.count) %}
 {{ azure_instance_module('redir_https' + ('_' + loop.index|string if https_data.count > 1 else ''), https_data, https_inbound, loop.index if https_data.count > 1 else None) }}
   {% endfor %}
 
-{%- if c2_data.get('redir_dns') %}
+{% if c2_data.get('redir_dns') %}
 {% set dns_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "53", "protocol": "Udp" }] %}
 {{ azure_instance_module('redir_dns', c2_data.redir_dns, dns_inbound) }}
 {%- endif %}
@@ -49,7 +49,7 @@ module "{{ suffix }}" {
 
 {## ==================== AWS ==================== ##}
 {%- elif c2_data.provider == "aws" -%}
-  {% set provider_module_path = "../../modules/aws" %}
+  {% set provider_module_path = "../../../modules/aws" %}
 {% set https_inbound = [
     { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] },
     { "from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] }

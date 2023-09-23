@@ -1,7 +1,7 @@
 {## ==================== AWS ==================== ##}
 {% macro aws_instance_module(suffix, data, ingress_rules) %}
 module "{{ suffix }}" {
-  source              = "../../modules/aws"
+  source              = "../../../modules/aws"
   instance_name       = "{{ suffix }}"
   tag_name            = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}"
@@ -20,7 +20,7 @@ module "{{ suffix }}" {
 {## ==================== Azure ==================== ##}
 {%- macro azure_instance_module(suffix, data, inbound) %}
 module "{{ suffix }}" {
-  source              = "../../modules/azure"
+  source              = "../../../modules/azure"
   resource_group_name = "segment_phish_resources"
   instance_name       = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}"

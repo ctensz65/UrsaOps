@@ -1,5 +1,5 @@
 {% if headscale_instances %}
-[headscale]
+[network]
 %{ for instance in headscale_instances ~}
 ${instance.hostname} ansible_host=${instance.ip} ansible_user=${instance.user} ansible_become_pass='{{ host_passwords[inventory_hostname] }}'
 %{ endfor ~}

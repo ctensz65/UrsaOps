@@ -1,0 +1,1 @@
+{"event": "verbose", "uuid": "4474161a-4aa4-43fb-9a28-4db7e6db47ed", "counter": 7, "stdout": "[WARNING]: Skipped '/../../terraform/engagement_2' path due to this access", "start_line": 6, "end_line": 7, "runner_ident": "135387d1-6e68-4cee-8104-4688a8611e35", "created": "2023-09-23T13:31:46.483325"}

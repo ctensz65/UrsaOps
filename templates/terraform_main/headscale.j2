@@ -1,20 +1,20 @@
 {% if output_type == 'headscale' %}
 module "headscale" {
 {% if headscale_data.provider == "aws" %}
-    source              = "../../modules/aws"
+    source              = "../../../modules/aws"
     instance_name       = "headscale"
     tag_name            = "headscale"
     computer_name       = "{{ headscale_data.vm_hostname }}"
     username_vm         = "{{ headscale_data.vm_username }}"
 {% elif headscale_data.provider == "azure" %}
-    source              = "../../modules/azure"
+    source              = "../../../modules/azure"
     resource_group_name = "segment_net_resources"
     instance_name       = "headscale"
     computer_name       = "{{ headscale_data.vm_hostname }}"
     username_vm         = "{{ headscale_data.vm_username }}"
     tags_segment        = "headscale"
 {% elif headscale_data.provider == "digitalocean" %}
-    source              = "../../modules/digitalocean"
+    source              = "../../../modules/digitalocean"
     instance_name       = "headscale"
     tag_name            = "headscale"
     computer_name       = "{{ headscale_data.vm_hostname }}"

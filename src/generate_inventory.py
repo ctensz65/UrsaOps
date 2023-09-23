@@ -1,17 +1,16 @@
 import os
 
-BASE_DIR = os.path.abspath('terraform')
-OUTPUT_FILE = "ansible/inventory/hosts.ini"
-
-
-def merge_inventories(base_dir, output_file):
+def merge_inventories(project_name, base_dir, output_file):
     all_hosts = []
     redir_https_hosts = []
+    c2_framework = []
 
+    full_path = os.path.join(base_dir, project_name)
     # Create or overwrite the merged inventory file
     with open(output_file, 'w') as outfile:
-        for segment_dir in sorted(os.listdir(base_dir)):
-            segment_path = os.path.join(base_dir, segment_dir)
+        outfile.write("".join("localhost ansible_connection=local\n\n"))
+        for segment_dir in sorted(os.listdir(full_path)):
+            segment_path = os.path.join(full_path, segment_dir)
 
             # Ensure it's a directory and has 'segment' in its name
             if os.path.isdir(segment_path) and 'segment' in segment_dir:
@@ -36,8 +35,11 @@ def merge_inventories(base_dir, output_file):
                                         if host.startswith("redir_https"):
                                             redir_https_hosts.append(host)
 
+                                        if host.startswith("c2_srv") or host.startswith("jumphost"):
+                                            c2_framework.append(host)
+
                                 outfile.write("".join(lines))
-                                outfile.write("\n")
+                                outfile.write("\n\n")
 
         # Check for multiple redir_https hosts
         if len(redir_https_hosts) > 1:
@@ -45,13 +47,10 @@ def merge_inventories(base_dir, output_file):
             for host in redir_https_hosts:
                 outfile.write(host + "\n")
             outfile.write("\n")
-
-        # Writing the [all] group at the end
-        outfile.write("[all]\n")
-        for host in all_hosts:
+        
+        outfile.write("[c2_srvclient]\n")
+        for host in c2_framework:
             outfile.write(host + "\n")
-        outfile.write("localhost\n")
+        outfile.write("\n")
 
-
-if __name__ == "__main__":
-    merge_inventories(BASE_DIR, OUTPUT_FILE)
+        #outfile.write("localhost\n")
