@@ -4,81 +4,106 @@ import os
 from tqdm import tqdm
 import time
 import threading
-import re
-
+from python_terraform import *
 
 from generate_vars import ansibleVars
 from generate_inventory import merge_inventories
 
-BASE_DIR_TERRAFORM = os.path.abspath('../terraform')
-BASE_DIR_ANSIBLE = os.path.abspath('../ansible')
+ursaops_root = os.environ.get("URSAOPS_ROOT")
+if ursaops_root is None:
+    raise EnvironmentError("The URSAOPS_ROOT environment variable is not set!")
+
+BASE_DIR_ANSIBLE = os.path.join(ursaops_root, "ansible")
+
 
 class wrapper:
     def __init__(self, project_name):
-        self.OUTPUT_INVENTORY = os.path.join(BASE_DIR_ANSIBLE, "inventory/hosts.ini")
         self.project_name = project_name
-
-    def deploy_infrastructure(self):
-        playbook_path = "playbooks/infra.yml"
-
-        result = ansible_runner.run(
-            private_data_dir=BASE_DIR_ANSIBLE,
-            playbook=playbook_path,
-            cmdline="--tags terraform_apply",
-            extravars = {
-                'project_name': self.project_name
-            }
+        self.ansible_playbook_path = os.path.join(ursaops_root, "ansible", "playbooks")
+        self.terraform_project_path = os.path.join(
+            ursaops_root, "terraform", self.project_name
         )
+        self.main_tf_files = []
+        self.spin = False
 
-        if result.status == "successful":
-            print("Deployment was successful!")
+    def spinner(self):
+        symbols = ["|", "/", "-", "\\"]
+        idx = 0
+        while self.spin:
+            sys.stdout.write("\r" + symbols[idx % len(symbols)])
+            sys.stdout.flush()
+            idx += 1
+            time.sleep(0.1)
+        sys.stdout.write("\rDone!\n")
 
-            os.makedirs(os.path.dirname(self.OUTPUT_INVENTORY), exist_ok=True)
-            merge_inventories(self.project_name, BASE_DIR_TERRAFORM, self.OUTPUT_INVENTORY)
-        else:
-            print("Deployment encountered an error!")
-            error_message = result.stdout
+    def search_maintf(self):
+        """
+        Find all main.tf files under the project directory
+        """
+        for segment in os.listdir(self.terraform_project_path):
+            segment_path = os.path.join(self.terraform_project_path, segment)
+            if os.path.isdir(segment_path):
+                for cloud_provider in os.listdir(segment_path):
+                    cloud_provider_path = os.path.join(segment_path, cloud_provider)
+                    main_tf_path = os.path.join(cloud_provider_path, "main.tf")
+                    if os.path.isfile(main_tf_path):
+                        self.main_tf_files.append(cloud_provider_path)
+        print(self.main_tf_files)
+        return self.main_tf_files
 
-            if isinstance(error_message, str):
-                stripped_message = re.sub(r'\x1b\[.*?m', '', error_message)
+    def terraform(self, action):
+        main_tf_files = self.search_maintf()
 
-                print(stripped_message)
-            else:
-                print("Unexpected type for error_message:", type(error_message))
-        
-    def destroy_segments(self):
-        playbook_path = "./ansible/playbooks/infra.yml"
-        private_data_dir = "./" 
+        for tf_directory in main_tf_files:
+            tf = Terraform(working_dir=tf_directory)
 
-        # Run the Ansible playbook
-        result = ansible_runner.run(
-            private_data_dir=private_data_dir,
-            playbook=playbook_path,
-            cmdline="--tags terraform_destroy",
-        )
+            #'''
+            # Run Terraform init
+            print(f"Initializing Terraform in {tf_directory}")
+            return_code, stdout, stderr = tf.init(capture_output=False)
+            if return_code != 0:
+                print(f"Failed to initialize Terraform in {tf_directory}")
+                print(stderr)
+                continue  # Skip to the next iteration if initialization fails
+            #'''
 
-        if result.status == "successful":
-            print("Segments were successfully destroyed!")
-        else:
-            print("Destruction process encountered an error!")
-            print("Reason:", result.stderr)
+            # Run Terraform plan
+            print(f"Planning Terraform in {tf_directory}")
+            return_code, stdout, stderr = tf.plan(capture_output=False)
+            if return_code != 0:
+                print(f"Failed to plan Terraform in {tf_directory}")
+                print(stderr)
+                continue  # Skip to the next iteration if planning fails
+
+            # if action == "deploy":
+            #     # Run Terraform apply
+            #     print(f"Applying Terraform in {tf_directory}")
+            #     return_code, stdout, stderr = tf.apply(
+            #         capture_output=False, skip_plan=True, auto_approve=True
+            #     )
+            #     if return_code != 0:
+            #         print(f"Failed to apply Terraform in {tf_directory}")
+            #         print(stderr)
+            # elif action == "destroy":
+            #     # Run Terraform Destoy
+            #     print(f"Destroying Instances in {tf_directory}")
+            #     return_code, stdout, stderr = tf.destroy(
+            #         capture_output=False, skip_plan=True, auto_approve=True
+            #     )
+            #     if return_code != 0:
+            #         print(f"Failed to destroy Terraform in {tf_directory}")
+            #         print(stderr)
+
+        # os.makedirs(os.path.dirname(self.OUTPUT_INVENTORY), exist_ok=True)
+        # merge_inventories(self.project_name, BASE_DIR_TERRAFORM, self.OUTPUT_INVENTORY)
+
 
 def usage():
-    print('----------------')
-    print('Deploy: python main.py deploy input_file.yaml')
-    print('Provisioning: python main.py provisioning')
-    print('Destroy: python main.py destroy')
-    print('----------------')
-
-def spinner():
-    symbols = ['|', '/', '-', '\\']
-    idx = 0
-    while spin:
-        sys.stdout.write('\r' + symbols[idx % len(symbols)])
-        sys.stdout.flush()
-        idx += 1
-        time.sleep(0.1)
-    sys.stdout.write('\rDone!\n')
+    print("----------------")
+    print("Deploy: python main.py deploy input_file.yaml")
+    print("Provisioning: python main.py provisioning")
+    print("Destroy: python main.py destroy")
+    print("----------------")
 
 
 if __name__ == "__main__":
@@ -91,30 +116,29 @@ if __name__ == "__main__":
     if arg_command == "deploy":
         try:
             input_yaml = sys.argv[2].strip().lower()
-            ansible_vars_instance = ansibleVars(input_yaml)
-
-            spin = True
-            # spinner_thread = threading.Thread(target=spinner)
-            # spinner_thread.start()
+            ansible_vars_instance = ansibleVars(input_yaml, ursaops_root)
 
             project_name, output = ansible_vars_instance.generate_ansible_vars()
 
-            # spin = False
-            # spinner_thread.join()
-
-            print('\nEngagement Name:', project_name)
+            print("\nEngagement Name:", project_name)
             print(output)
 
-            # confirmation = input("Does everything look okay? Type 'yes' to continue deploying: ").strip().lower()
-            # if confirmation == 'yes':
-            #     instance = wrapper(project_name)
-            #     instance.deploy_infrastructure()
-            # else:
-            #     print("Aborting the process.")
+            confirmation = (
+                input("Does everything look okay? Type 'yes' to continue deploying: ")
+                .strip()
+                .lower()
+            )
+            if confirmation == "yes":
+                instance = wrapper(project_name)
+                instance.terraform(arg_command)
+            else:
+                print("Aborting the process.")
         except IndexError:
-            print('Input file yaml required!')
+            print("Input file yaml required!")
     elif arg_command == "destroy":
-        wrapper.destroy_segments()
+        # instance = wrapper(project_name)
+        # instance.terraform(arg_command)
+        print("Aborting the process.")
     else:
         usage()
         sys.exit(1)

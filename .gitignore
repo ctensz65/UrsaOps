@@ -6,6 +6,8 @@ ansible/vault/*
 .vscode
 *.pem
 *.p12
+*.artifacts.*
+*.env
 
 ### Ansible ###
 *.retry

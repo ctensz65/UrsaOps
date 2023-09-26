@@ -4,9 +4,12 @@ import os
 from jinja2 import Environment, FileSystemLoader
 
 class ansibleVars:
-    def __init__(self, filepath):
+    def __init__(self, filepath, ursaops_root):
         self.filepath = filepath
         self.data = self.load_yaml()
+        self.project_path = ursaops_root
+        self.template_path = os.path.join(ursaops_root, 'templates/terraform_main/inventory.tpl')
+        self.terraform_path = os.path.join(ursaops_root, 'terraform')
 
         self.valid_providers = ["aws", "azure", "digitalocean"]
         self.frameworks = ["sliver", "cobaltstrike", "havoc"]
@@ -95,7 +98,8 @@ class ansibleVars:
         }
 
         self.region = self.data["general"]["region"]
-        self.path_ansible_vars = "../ansible/group_vars/"
+        self.path_ansible_vars = os.path.join(self.project_path, 'ansible', 'group_vars')
+        self.path_terraform = os.path.join(self.project_path, 'terraform')
 
         self.general_data = None
         self.headscale_data = None
@@ -153,7 +157,7 @@ class ansibleVars:
                 "dir": os.path.join("segment2_c2", self.c2_data["provider"]),
                 "filename": "main.tf",
             })
-        elif self.phish_data:
+        if self.phish_data:
             configs.append({
                 "output_type": "phish",
                 "data": {"phish_data": self.phish_data},
@@ -272,11 +276,7 @@ class ansibleVars:
             )
      
     def ensure_dir(self, directory):
-        print("Creating directory:", directory)  # Print the directory being created
         os.makedirs(directory, exist_ok=True)
-
-    def file_exists(self, directory, filename):
-        return os.path.isfile(os.path.join(directory, filename))
 
     def write_output_to_file(self, output, filename):
         if output:
@@ -291,6 +291,11 @@ class ansibleVars:
         )
         template = env.get_template(template_name)
 
+        paths = {
+            'TEMPLATE_PATH': self.template_path,
+            'TERRAFORM_PATH': self.terraform_path
+        }
+        
         for config in configs:
             if template_name == "headscale.j2":
                 dir_path = os.path.join(path_prefix, config["dir"])
@@ -298,10 +303,7 @@ class ansibleVars:
                 dir_path = path_prefix
             self.ensure_dir(dir_path)
 
-            # if self.file_exists(dir_path, config["filename"]):
-            #     raise FileExistsError(f"File {config['filename']} already exists in '{dir_path}'")
-
-            output = template.render(output_type=config["output_type"], **config["data"])
+            output = template.render(output_type=config["output_type"], **config["data"], **paths)
             full_file_path = os.path.join(dir_path, config["filename"])
             self.write_output_to_file(output, full_file_path)        
 
@@ -347,14 +349,14 @@ class ansibleVars:
 
         self.update_attributes()
 
-        ansible_template_env_path = "../templates/ansible_vars"
+        ansible_template_env_path = os.path.join(self.project_path, 'templates', 'ansible_vars')
         ansible_template_name = "all.j2"
         ansible_path_prefix = self.path_ansible_vars
         ansible_configs = self.ansible_configs()
-                
-        terraform_template_env_path = "../templates/terraform_main"
+
+        terraform_template_env_path = os.path.join(self.project_path, 'templates', 'terraform_main')        
         terraform_template_name = "headscale.j2"
-        terraform_path_prefix = os.path.abspath(os.path.join("../terraform", self.general_data["project_name"]))
+        terraform_path_prefix = os.path.join(self.path_terraform, self.general_data["project_name"])
         terraform_configs = self.terraform_configs()
 
         self.process_configs(ansible_template_env_path, ansible_template_name, ansible_configs, ansible_path_prefix)

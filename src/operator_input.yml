@@ -31,17 +31,3 @@ segment_c2:
       version:
       user_agent:
       uri_path:
-segment_phish:
-  provider: aws
-  domain: asu.com
-  dns_provider: asu
-  server:
-    vm_hostname: user
-    vm_username:
-  redir:
-    vm_hostname:
-    vm_username:
-  evilginx:
-    redirect_url:
-    path_lures:
-    phishlets:

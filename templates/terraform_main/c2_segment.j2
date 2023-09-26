@@ -1,7 +1,7 @@
 {## ==================== Azure ==================== ##}
 {%- macro azure_instance_module(suffix, data, inbound, current_index=None) %}
 module "{{ suffix }}" {
-  source              = "{{ provider_module_path }}"
+  source              = "{{ TERRAFORM_PATH }}/modules/azure"
   resource_group_name = "segment_c2_resources"
   instance_name       = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
@@ -14,7 +14,7 @@ module "{{ suffix }}" {
 {## ==================== AWS ==================== ##}
 {% macro aws_instance_module(suffix, data, ingress_rules, current_index=None) %}
 module "{{ suffix }}" {
-  source              = "{{ provider_module_path }}"
+  source              = "{{ TERRAFORM_PATH }}/modules/aws"
   instance_name       = "{{ suffix }}"
   tag_name            = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
@@ -33,7 +33,6 @@ module "{{ suffix }}" {
 {%- set https_data = c2_data.redir_https %}
 {## ==================== Azure ==================== ##}
 {%- if c2_data.provider == "azure" -%}
-  {% set provider_module_path = "../../../modules/azure" %}
 {% set https_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "443", "protocol": "Tcp" }, { "port": "80", "protocol": "Tcp" }] %}
   {% for _ in range(https_data.count) %}
 {{ azure_instance_module('redir_https' + ('_' + loop.index|string if https_data.count > 1 else ''), https_data, https_inbound, loop.index if https_data.count > 1 else None) }}
@@ -49,7 +48,6 @@ module "{{ suffix }}" {
 
 {## ==================== AWS ==================== ##}
 {%- elif c2_data.provider == "aws" -%}
-  {% set provider_module_path = "../../../modules/aws" %}
 {% set https_inbound = [
     { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] },
     { "from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] }
@@ -86,8 +84,10 @@ locals {
     module.c2_srv.instance_details
   ]
 
-  inventory_content = templatefile("${path.module}/../../../templates/terraform_main/inventory.tpl", {
+  inventory_content = templatefile("{{ TEMPLATE_PATH }}", {
     c2_instances = local.c2_instances
+    headscale_instances = [],
+    phish_instances = []
   })
 }
 

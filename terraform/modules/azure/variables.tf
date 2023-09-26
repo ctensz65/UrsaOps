@@ -44,7 +44,7 @@ variable "admin_pass" {
 variable "local_user" {
   description = "The local username, can be overridden by setting the TF_VAR_local_user"
   type        = string
-  default     = "ubuntu"
+  default     = "leroy"
 }
 
 variable "private_key_path" {

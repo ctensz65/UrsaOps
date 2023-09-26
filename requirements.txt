@@ -1,2 +1,4 @@
 PyYAML
 Jinja2
+python-terraform
+ansible-runner

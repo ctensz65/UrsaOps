@@ -55,6 +55,12 @@ By accessing this repository, you acknowledge the above warnings and use the con
 ## Usage/Examples
 Before executing any of the following steps, ensure you've installed all the Requirements.
 
+- **Set Environment Variable**
+  
+  Set an environment variable URSAOPS_ROOT pointing to the root directory of your project.
+```bash
+  export URSAOPS_ROOT="/path/to/UrsaOps"
+```
 - **Generate Ansible Variables**
   
   Generate necessary variables for Ansible configurations based on the given input.

@@ -1,7 +1,7 @@
 {## ==================== AWS ==================== ##}
 {% macro aws_instance_module(suffix, data, ingress_rules) %}
 module "{{ suffix }}" {
-  source              = "../../../modules/aws"
+  source              = "{{ TERRAFORM_PATH }}/modules/aws"
   instance_name       = "{{ suffix }}"
   tag_name            = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}"
@@ -20,7 +20,7 @@ module "{{ suffix }}" {
 {## ==================== Azure ==================== ##}
 {%- macro azure_instance_module(suffix, data, inbound) %}
 module "{{ suffix }}" {
-  source              = "../../../modules/azure"
+  source              = "{{ TERRAFORM_PATH }}/modules/azure"
   resource_group_name = "segment_phish_resources"
   instance_name       = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}"
@@ -59,8 +59,10 @@ locals {
     module.phish_srv.instance_details
   ]
 
-  inventory_content = templatefile("${path.module}/../../../templates/terraform_main/inventory.tpl", {
-    phish_instances = local.phish_instances
+  inventory_content = templatefile("{{ TEMPLATE_PATH }}", {
+    phish_instances = local.phish_instances,
+    headscale_instances = [],
+    c2_instances = []
   })
 }
 

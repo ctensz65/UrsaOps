@@ -3,12 +3,27 @@
   hosts: localhost
   gather_facts: False
   tasks:
+    - name: Check if project directory exists
+      stat:
+        path: "{{ ursaops_root }}/terraform/{{ project_name }}"
+      register: project_directory
+
+    - name: Fail if project directory does not exist
+      fail:
+        msg: "The specified project directory {{ ursaops_root }}/terraform/{{ project_name }} does not exist!"
+      when: not project_directory.stat.exists
+
     - name: Find all main.tf files
       find:
-        paths: "../../terraform/{{ project_name }}"
+        paths: "{{ ursaops_root }}/terraform/{{ project_name }}"
         patterns: "main.tf"
         recurse: yes
       register: main_tf_files
+      when: project_directory.stat.exists
+
+    - name: Display main.tf files on each segment
+      debug:
+        var: main_tf_files.files | map(attribute='path') | list
 
     - name: Execute Terraform init on each segment
       command: "terraform init"
