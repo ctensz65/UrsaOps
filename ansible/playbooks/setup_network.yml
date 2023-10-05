@@ -1,12 +1,22 @@
 ---
 - name: Install Requirement Packages
-  hosts: infra
+  hosts: all
   become: yes
   roles:
     - role: common
       tasks_from: main
   tags:
     - initial
+
+- name: Setup DNS based on provider
+  hosts: headscale
+  become: yes
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: dns_setup
+  tags:
+    - dns_setup
 
 - name: Install Docker at Backend Server
   hosts: headscale
@@ -33,7 +43,7 @@
     - role: headscale
       tasks_from: main
   tags:
-    - controlplane
+    - headscale
 
 - name: Add Headscale User
   hosts: headscale
@@ -44,7 +54,6 @@
         cmd: docker exec headscale headscale user create {{ item }}
         chdir: /opt/headscale
       loop: "{{ pre_auth_user }}"
-      run_once: yes
   tags:
     - createuser
 
@@ -56,11 +65,13 @@
         name: headscale
         tasks_from: register
   tags:
-    - createuser
+    - generatepreauth
 
 - name: Start Caddy
   hosts: headscale
   become: yes
+  vars:
+    path_caddy: "/opt"
   tasks:
     - include_role:
         name: caddy
@@ -70,9 +81,8 @@
 
 - name: Connect tailscale client
   hosts: all
-  serial: yes
   vars_files:
-    - roles/headscale/files/pre_auth_keys.yml
+    - "/tmp/pre_auth_keys.yml"
   become: yes
   tasks:
     - include_role:

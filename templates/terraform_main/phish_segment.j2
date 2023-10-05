@@ -39,24 +39,24 @@ module "{{ suffix }}" {
     { "from_port": 8080, "to_port": 8080, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] }
   ]
 %}
-{{ aws_instance_module('redir_phish', phish_data.redir, redir_inbound) }}
+{{ aws_instance_module(phish_data.redir.instance_name, phish_data.redir, redir_inbound) }}
 {% set srv_inbound = [
     { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] }
   ]
 %}
-{{ aws_instance_module('phish_srv', phish_data.server, srv_inbound) }}
+{{ aws_instance_module(phish_data.server.instance_name, phish_data.server, srv_inbound) }}
 {## ==================== Azure ==================== ##}
 {%- elif phish_data.provider == "azure" -%}
 {% set redir_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "443", "protocol": "Tcp" }, { "port": "8080", "protocol": "Tcp" }] %}
-{{ azure_instance_module('redir_phish', phish_data.redir, redir_inbound) }}
+{{ azure_instance_module(phish_data.redir.instance_name, phish_data.redir, redir_inbound) }}
 {% set srv_inbound = [{ "port": "22", "protocol": "Tcp" }] %}
-{{ aws_instance_module('phish_srv', phish_data.server, srv_inbound) }}
+{{ aws_instance_module(phish_data.server.instance_name, phish_data.server, srv_inbound) }}
 {% endif -%}
 
 locals {
   phish_instances = [
-    module.redir_phish.instance_details,
-    module.phish_srv.instance_details
+    module.{{ phish_data.redir.instance_name }}.instance_details,
+    module.{{ phish_data.server.instance_name }}.instance_details
   ]
 
   inventory_content = templatefile("{{ TEMPLATE_PATH }}", {

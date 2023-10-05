@@ -2,12 +2,14 @@
 - name: Set certbot package for redirector.phish
   set_fact:
     certbot_package: "python3-certbot-apache"
-  when: "redirector.phish in inventory_hostname"
+  when: 
+    - redirector.phish is defined
+    - inventory_hostname in redirector.phish or inventory_hostname == redirector.phish
 
 - name: Set certbot package for other hosts
   set_fact:
     certbot_package: "python3-certbot-nginx"
-  when: "redirector.phish not in inventory_hostname"
+  when: redirector.phish is not defined or (redirector.phish is defined and inventory_hostname not in redirector.phish)
 
 - name: Install Certbot
   apt:

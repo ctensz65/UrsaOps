@@ -1,4 +1,3 @@
-pre_auth:
-{% for item in pre_auth_keys %}
-  {{ item.item }}: "{{ item.stdout }}"
+{% for user, key in pre_auth_user|zip(preauthkey) %}
+{{ user }}: {{ key }}
 {% endfor %}

@@ -1,22 +1,17 @@
-resource "azurerm_resource_group" "rg" {
-  name     = var.resource_group_name
-  location = var.location
-}
-
 locals {
   resolved_private_key_path = var.private_key_path != "" ? var.private_key_path : "/home/${var.local_user}/.ssh/id_rsa"
   resolved_public_key_path  = var.public_key != "" ? var.public_key : "/home/${var.local_user}/.ssh/id_rsa.pub"
 }
 
 resource "azurerm_linux_virtual_machine" "main" {
-  name                  = var.instance_name
-  location              = azurerm_resource_group.rg.location
-  resource_group_name   = azurerm_resource_group.rg.name
-  network_interface_ids = [ azurerm_network_interface.ni.id ]
-  size                  = var.vm_size
-  computer_name         = var.computer_name
-  admin_username        = var.username_vm
-  admin_password        = var.admin_pass
+  name                            = var.instance_name
+  location                        = var.location
+  resource_group_name             = var.resource_group_name
+  network_interface_ids           = [azurerm_network_interface.ni.id]
+  size                            = var.vm_size
+  computer_name                   = var.computer_name
+  admin_username                  = var.username_vm
+  admin_password                  = random_password.password.result
   disable_password_authentication = true
 
   source_image_reference {
@@ -27,10 +22,10 @@ resource "azurerm_linux_virtual_machine" "main" {
   }
 
   os_disk {
-    caching               = "ReadWrite"
-    storage_account_type  = "Standard_LRS"
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
   }
-  
+
   admin_ssh_key {
     username   = var.username_vm
     public_key = file(local.resolved_public_key_path)
@@ -40,12 +35,12 @@ resource "azurerm_linux_virtual_machine" "main" {
     environment = "redteam"
     segment     = var.tags_segment
   }
-  
+
   connection {
     type        = "ssh"
     host        = azurerm_public_ip.pip.ip_address
     user        = var.username_vm
-    private_key = file(local.resolved_private_key_path)        
+    private_key = file(local.resolved_private_key_path)
     agent       = false
   }
 
@@ -55,4 +50,13 @@ resource "azurerm_linux_virtual_machine" "main" {
       "sudo apt-get upgrade -y"
     ]
   }
+}
+
+resource "random_password" "password" {
+  length      = 20
+  min_lower   = 1
+  min_upper   = 1
+  min_numeric = 1
+  min_special = 1
+  special     = true
 }

@@ -8,6 +8,7 @@ redir_https: 2
 domain: [{{  redir_https_data.domain }}]
 {% endif -%}
 domain_c2_local: c2server.local
+dns_provider: {{ c2_data.dns_provider }}
 {% if c2_data.get('redir_dns') %}
 dns_subdomain: {{ c2_data.redir_dns.subdomain }}
 {% endif -%}

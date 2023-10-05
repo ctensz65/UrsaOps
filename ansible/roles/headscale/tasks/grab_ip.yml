@@ -3,7 +3,7 @@
   command:
     cmd: docker exec headscale headscale nodes list -o yaml
     chdir: /opt/headscale
-    creates: nodes.yaml # Only run this if nodes.yaml doesn't exist
+    creates: nodes.yaml 
   register: headscale_nodes_output
 
 - name: Write output to nodes.yaml
@@ -30,6 +30,6 @@
 - name: Generate nodes.yaml file from ip_tailscale list
   template:
     src: nodes_ip.j2
-    dest: ./roles/headscale/files/nodes.yml
+    dest: "{{ ansible_dir }}/roles/headscale/files/nodes.yml"
   delegate_to: localhost
   become: false

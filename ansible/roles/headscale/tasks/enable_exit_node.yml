@@ -3,7 +3,7 @@
   command:
     cmd: docker exec headscale headscale routes list -o yaml
     chdir: /opt/headscale
-    creates: routes.yaml # Only run this if routes.yaml doesn't exist
+    creates: routes.yaml
   register: headscale_routes_output
 
 - name: Write output to routes.yaml
@@ -32,7 +32,7 @@
 - name: Create the output YAML file
   copy:
     content: "{{ {'routes': filtered_routes} | to_yaml }}"
-    dest: ./roles/headscale/files/routes.yml
+    dest: "{{ ansible_dir }}/roles/headscale/files/routes.yml"
   delegate_to: localhost
   become: false
 

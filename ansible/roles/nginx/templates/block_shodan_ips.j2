@@ -1,3 +1,5 @@
 {% for item in shodan_ips.list %}
+{% if item.ip != 'ip' %}
 deny {{ item.ip }};
+{% endif %}
 {% endfor %}

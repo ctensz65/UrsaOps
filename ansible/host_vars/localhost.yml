@@ -1,6 +1,0 @@
-# Terraform
-segment_paths:
-  phish: "../terraform/segment3-phishing/{{ cloud }}"
-  c2: "../terraform/segment2-c2/{{ cloud }}/"
-  network: "../terraform/segment1-network/{{ cloud }}/"
-  siem: "../terraform/segment4-siem/{{ cloud }}/"

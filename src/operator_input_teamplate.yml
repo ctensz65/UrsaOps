@@ -10,7 +10,7 @@ headscale:
     domain: subengexpo.net
     base_domain_local: redteam.local
     jump_host: true
-    exp_time_preauthkeys:
+    exp_time_preauthkeys: 55m
 segment_c2:
   provider: azure
   dns_provider: manual

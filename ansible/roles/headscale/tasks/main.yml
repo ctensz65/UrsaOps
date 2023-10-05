@@ -13,11 +13,13 @@
   file:
     path: /opt/headscale/config/db.sqlite
     state: touch
+    mode: '0777'
 
 - name: Generate Headscale Config File
   template:
     src: templates/config.j2
     dest: /opt/headscale/config/config.yaml
+    mode: '0777'
 
 - name: Generate Docker Compose file from template
   template:

@@ -1,0 +1,31 @@
+---
+- name: Check DNS resolution for manual setup
+  shell: dig +short {{ domain }}
+  register: dns_result
+  when: dns_provider == 'manual'
+
+- name: DNS has successfully resolved correctly
+  debug:
+    msg: "DNS resolution corrects for {{ domain }}!"
+  when:
+    - dns_provider == 'manual'
+    - ansible_host in dns_result.stdout_lines
+
+- name: Fail if DNS does not resolve correctly (for manual setup)
+  fail:
+    msg: "DNS resolution incorrect for {{ domain }}!"
+  when:
+    - dns_provider == 'manual'
+    - ansible_host not in dns_result.stdout_lines
+
+# - name: Setup DNS for Route53
+#   # Assuming you've tasks/modules specific for Route53 setup
+#   route53_module:
+#     ...
+#   when: dns_provider == 'route53'
+
+# - name: Setup DNS for Cloudflare
+#   # Assuming you've tasks/modules specific for Cloudflare setup
+#   cloudflare_module:
+#     ...
+#   when: dns_provider == 'cloudflare'

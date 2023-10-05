@@ -1,29 +1,35 @@
-
 ==========================================
 Segment: Headscale
-Provider: {{ headscale_data.provider }}
-Domain: {{ setup_data.domain }}
+    - Provider: {{ headscale_data.provider }}
+    - Domain: {{ setup_data.domain }}
 
 {% if c2_data is not none %}
 ==========================================
 Segment: c2
-Provider: {{ c2_data.provider }}
+    - Provider: {{ c2_data.provider }}
 {% if c2_framework.get('cobaltstrike') -%}
-Framework: Cobalt Strike
+    - Framework: Cobalt Strike
 {% elif c2_framework.get('sliver') %}
-Framework: Sliver
+    - Framework: Sliver
 {% elif c2_framework.get('havoc') %}
-Framework: Havoc
+    - Framework: Havoc
 {% endif %}
-Total Redirector HTTPs: {{  c2_data.redir_https.count }}
+    - Total Redirector HTTPs: {{  c2_data.redir_https.count }}
 {% if c2_data.get('redir_dns') %}
-Redirector DNS
+    - Redirector DNS
 {% endif %}
 {% endif %}
 
 {% if phish_data %}
 ==========================================
 Segment: Phishing
-Provider: {{ phish_data.provider }}
-Domain: {{ phish_data.domain }}
+    - Provider: {{ phish_data.provider }}
+    - Domain: {{ phish_data.domain }}
 {% endif %}
+==========================================
+Summary:
+   - The above configuration and resources will be deployed.
+   - Ensure you have reviewed and validated all details.
+
+Warning:
+   - Deployment will create resources that may incur costs. Ensure you are aware of any associated charges.

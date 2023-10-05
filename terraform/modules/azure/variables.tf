@@ -32,13 +32,8 @@ variable "vm_size" {
 }
 
 variable "tags_segment" {
-  type        = string
-  default     = "redirector"
-}
-
-variable "admin_pass" {
-  type        = string
-  default     = "P@ssw0rd123"
+  type    = string
+  default = "redirector"
 }
 
 variable "local_user" {
@@ -50,21 +45,20 @@ variable "local_user" {
 variable "private_key_path" {
   description = "Path to the private SSH key"
   type        = string
-  default     = "" 
+  default     = ""
 }
 
 variable "public_key" {
   description = "Path to the public SSH key"
   type        = string
-  default     = "" 
+  default     = ""
 }
 
 variable "inbound_rules" {
   description = "List of inbound port and protocol maps. e.g. [{'port': '443', 'protocol': 'Tcp'}, {'port': '53', 'protocol': 'Udp'}]"
-  type        = list(object({
+  type = list(object({
     port     = string
     protocol = string
   }))
-  default     = []
+  default = []
 }
-

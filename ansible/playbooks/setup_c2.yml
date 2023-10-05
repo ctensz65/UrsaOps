@@ -1,6 +1,53 @@
 ---
+- hosts: all
+  gather_facts: no
+  tasks:
+    - include_vars: /home/leroy/UrsaOps/ansible/inventory/group_vars/all.yml
+  
+- name: Check if group_redir_https exists and has members
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Check if group_redir_https has members
+      set_fact:
+        use_redirector_var: true
+      when: 
+        - "'group_redir_https' not in groups"
+        - "groups['group_redir_https'] is not defined or groups['group_redir_https'] | length == 0"
+
+    - name: Add host from redirector.https variable if group_redir_https is empty
+      add_host:
+        name: "{{ item }}"
+        groups: temp_redir_https_group
+      loop: "{{ redirector.https }}"
+      when: use_redirector_var | default(false)
+  tags:
+    - count_redir
+
+- name: Print OK
+  hosts: group_redir_https:temp_redir_https_group
+  tasks:
+    - name: Print
+      debug:
+        msg: "One Redirector! {{ c2_machine }}"
+      when: "'temp_redir_https_group' in group_names"
+    - name: Print
+      debug:
+        msg: "Two Redirector!"
+      when: "'group_redir_https' in group_names"
+
+- name: Setup DNS based on provider
+  hosts: group_redir_https:temp_redir_https_group
+  become: yes
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: dns_setup
+  tags:
+    - dns_setup
+
 - name: Install Nginx Service
-  hosts: group_redir_https
+  hosts: group_redir_https:temp_redir_https_group
   become: yes
   roles:
     - role: nginx
@@ -8,7 +55,7 @@
     - setup_nginx
 
 - name: Install Certbot
-  hosts: group_redir_https
+  hosts: group_redir_https:temp_redir_https_group
   become: yes
   tasks:
     - include_role:
@@ -17,8 +64,43 @@
   tags:
     - certbot
 
-- name: Setup Nginx Reverse Proxy for C2 Redirector
-  hosts: group_redir_https
+- name: Extract Tailscale IP C2 Server
+  hosts: "{{ c2_machine | default('c2srv') }}"
+  become: yes
+  tasks:
+    - name: Check if nodes.yml exists
+      command:
+        cmd: "tailscale ip --4"
+      register: c2srv_ip
+
+    - name: Update group_vars with IP
+      delegate_to: localhost
+      become: no
+      lineinfile:
+        path: "{{ ansible_dir }}/inventory/group_vars/c2_segment.yml"
+        regexp: '^ip_tailscale_c2:'
+        line: "ip_tailscale_c2: \"{{ c2srv_ip.stdout }}\""
+  tags:
+    - set_ip_c2
+
+- name: Add c2domain.local to /etc/hosts
+  hosts: group_redir_https:temp_redir_https_group
+  become: yes
+  tasks:
+    - name: Add c2domain.local to /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: "^.*{{ domain_c2_local | regex_escape() }}.*$"
+        line: "{{ ip_tailscale_c2 }} {{ domain_c2_local }}"
+        state: present
+  tags:
+    - add_hosts
+
+- name: Setup Nginx Reverse Proxy
+  hosts: group_redir_https:temp_redir_https_group
+  vars:
+    default_profile: "1"
+    profile_value: "{{ profile | default(default_profile) }}"
   become: yes
   tasks:
     - include_role:
@@ -28,7 +110,7 @@
     - setup_redir
 
 - name: Setup CoreDNS for DNS Redirector
-  hosts: redir_dns
+  hosts: "{{ redirector.dns | default('redirector_dns') }}"
   become: yes
   tasks:
     - include_role:
@@ -39,7 +121,7 @@
     - setup_coredns
 
 - name: Generate Keystore for CS
-  hosts: group_redir_https
+  hosts: group_redir_https:temp_redir_https_group
   become: yes
   tasks:
     - include_role:
@@ -50,13 +132,13 @@
     - keystore_cs
 
 - name: Copy Let's Encrypt Certificates for Sliver C2
-  hosts: group_redir_https
+  hosts: group_redir_https:temp_redir_https_group
   become: yes
   tasks:
     - name: Copy Let's Encrypt fullchain.pem for Sliver
       fetch:
         src: /etc/letsencrypt/live/{{ domain }}/fullchain.pem
-        dest: ./roles/c2_sliver/files/cert.pem
+        dest: "{{ ansible_dir }}/roles/c2_sliver/files/cert.pem"
         flat: yes
         mode: "0644"
       when: c2 == 'sliver'
@@ -64,7 +146,7 @@
     - name: Copy Let's Encrypt privkey.pem for Sliver
       fetch:
         src: /etc/letsencrypt/live/{{ domain }}/privkey.pem
-        dest: ./roles/c2_sliver/files/key.pem
+        dest: "{{ ansible_dir }}/roles/c2_sliver/files/key.pem"
         flat: yes
         mode: "0600"
       when: c2 == 'sliver'
@@ -72,7 +154,7 @@
     - cert_sliver
 
 - name: Setup C2 [Cobalt Strike 4.7]
-  hosts: c2_srv
+  hosts: "{{ c2_machine }}"
   become: yes
   tasks:
     - include_role:
@@ -83,7 +165,7 @@
     - setup_cs
 
 - name: Setup CobaltStrike - Teamserver
-  hosts: c2_srv
+  hosts: "{{ c2_machine }}"
   become: yes
   tasks:
     - include_role:
@@ -94,7 +176,7 @@
     - setup_cs
 
 - name: Setup C2 [Havoc]
-  hosts: c2_srv
+  hosts: "{{ c2_machine }}"
   become: yes
   vars:
     go_version_18: true
@@ -115,7 +197,7 @@
     - setup_havoc
 
 - name: Setup C2 [Sliver]
-  hosts: c2_srv
+  hosts: "{{ c2_machine }}"
   become: yes
   tasks:
     - include_role:
@@ -126,7 +208,7 @@
     - setup_sliver
 
 - name: Disable System Resolved Service
-  hosts: redir_dns
+  hosts: "{{ redirector.dns }}"
   become: yes
   tasks:
     - include_role:
@@ -139,7 +221,7 @@
     - disable_resolved
 
 - name: Start CoreDNS
-  hosts: redir_dns
+  hosts: "{{ redirector.dns }}"
   become: yes
   tasks:
     - include_role:

@@ -3,33 +3,44 @@ import re
 import os
 from jinja2 import Environment, FileSystemLoader
 
+
 class ansibleVars:
     def __init__(self, filepath, ursaops_root):
         self.filepath = filepath
         self.data = self.load_yaml()
+
         self.project_path = ursaops_root
-        self.template_path = os.path.join(ursaops_root, 'templates/terraform_main/inventory.tpl')
-        self.terraform_path = os.path.join(ursaops_root, 'terraform')
+        self.template_path = os.path.join(
+            ursaops_root, "templates/terraform_main/inventory.tftpl"
+        )
+        self.path_terraform = os.path.join(ursaops_root, "terraform")
+        self.path_ansible = os.path.join(ursaops_root, "ansible")
 
         self.valid_providers = ["aws", "azure", "digitalocean"]
         self.frameworks = ["sliver", "cobaltstrike", "havoc"]
 
         if "headscale" not in self.data:
-            raise ValueError("[+] Headscale Segment does not exist")    
+            raise ValueError("[+] Headscale segment does not exist")
 
-        self.exp_time_preauthkeys = self.data["headscale"]["setup"]["exp_time_preauthkeys"]
-    
+        self.exp_time_preauthkeys = self.data["headscale"]["setup"][
+            "exp_time_preauthkeys"
+        ]
+
+        self.region = self.data["general"]["region"]
+
         self.general_defaults = {
             "project_name": "operation_spear",
             "ntp_timezone": "Asia/Jakarta",
             "vault_path": "",
             "region": "southeast asia",
-            "provisioning_user": os.getenv("USER") or os.getenv("LOGNAME") or "default_user",
+            "provisioning_user": os.getenv("USER")
+            or os.getenv("LOGNAME")
+            or "default_user",
         }
 
         self.headscale_defaults = {
             "provider": "azure",
-            "vm_username": "headscale",
+            "vm_username": "node",
             "vm_hostname": "headscale",
             "setup": {
                 "dns_provider": "manual",
@@ -38,8 +49,8 @@ class ansibleVars:
                 "acme_email": "noemail@redteam.com",
                 "base_domain_local": "redteam.local",
                 "jump_host": True,
-                "exp_time_preauthkeys": "5m",
-                "user_client": ["redirector", "c2_srv", "phish_srv", "jumphost"],
+                "exp_time_preauthkeys": "1m",
+                "user_client": ["jumphost"],
             },
         }
 
@@ -49,13 +60,15 @@ class ansibleVars:
             "redir_https": {
                 "count": 1,
                 "domain": "redteam.id",
-                "vm_hostname": "redirhttps",
-                "vm_username": "node2",
+                "instance_name": "redirector_https",
+                "vm_hostname": "https",
+                "vm_username": "redir",
             },
             "framework": {
                 "count": 1,
+                "instance_name": "c2_backend",
                 "vm_hostname": "c2srv",
-                "vm_username": "node3",
+                "vm_username": "node",
             },
         }
 
@@ -64,12 +77,14 @@ class ansibleVars:
             "dns_provider": "manual",
             "domain": "mydomainphish.com",
             "server": {
-                "vm_hostname": "phish_srv",
-                "vm_username": "ops",
+                "instance_name": "phish_backend",
+                "vm_hostname": "phishsrv",
+                "vm_username": "node",
             },
             "redir": {
-                "vm_hostname": "redir",
-                "vm_username": "phredir",
+                "instance_name": "redirector_phish",
+                "vm_hostname": "phish",
+                "vm_username": "redir",
             },
             "evilginx": {
                 "redirect_url": "https://login.microsoftonline.com",
@@ -94,12 +109,12 @@ class ansibleVars:
             },
             "east-us": {"aws": "us-east-1", "digitalocean": "nyc1", "azure": "East US"},
             "west-us": {"aws": "us-west-1", "digitalocean": "sfo2", "azure": "West US"},
-            "west-eu": {"aws": "eu-west-1", "digitalocean": "ams3", "azure": "West Europe"},
+            "west-eu": {
+                "aws": "eu-west-1",
+                "digitalocean": "ams3",
+                "azure": "West Europe",
+            },
         }
-
-        self.region = self.data["general"]["region"]
-        self.path_ansible_vars = os.path.join(self.project_path, 'ansible', 'group_vars')
-        self.path_terraform = os.path.join(self.project_path, 'terraform')
 
         self.general_data = None
         self.headscale_data = None
@@ -107,8 +122,8 @@ class ansibleVars:
         self.c2_data = None
         self.c2_framework = None
         self.phish_data = None
-    
-    def ansible_configs(self): 
+
+    def ansible_configs(self):
         configs = [
             {
                 "output_type": "all",
@@ -118,54 +133,74 @@ class ansibleVars:
                     "headscale_data": self.headscale_data,
                     "c2_data": self.c2_data,
                     "phish_data": self.phish_data,
+                    "ansible_dir": self.path_ansible,
                 },
                 "filename": "all.yml",
             },
         ]
         if self.c2_data and self.c2_framework:
-            configs.append({
-                "output_type": "c2_segment",
-                "data": {"c2_data": self.c2_data, "c2_framework": self.c2_framework},
-                "filename": "c2_segment.yml",
-            })
+            configs.append(
+                {
+                    "output_type": "c2_segment",
+                    "data": {
+                        "c2_data": self.c2_data,
+                        "c2_framework": self.c2_framework,
+                    },
+                    "filename": "c2_segment.yml",
+                }
+            )
         else:
-            print("[+] How can you bring your beacon?, You don't define C2 Segment") 
+            print("[+] How can you bring your beacon?, You don't define C2 Segment")
         if self.phish_data:
-            configs.append({
-                "output_type": "segment_phish",
-                "data": {"general_data": self.general_data, "phish_data": self.phish_data},
-                "filename": "phish_segment.yml",
-            })
-        else: 
-            print("[+] Nevermind, You don't define Phishing Segment") 
+            configs.append(
+                {
+                    "output_type": "segment_phish",
+                    "data": {
+                        "general_data": self.general_data,
+                        "phish_data": self.phish_data,
+                    },
+                    "filename": "phish_segment.yml",
+                }
+            )
+        else:
+            print("[+] Nevermind, You don't define Phishing Segment")
 
         return configs
 
-    def terraform_configs(self): 
+    def terraform_configs(self):
         configs = [
             {
                 "output_type": "headscale",
                 "data": {"headscale_data": self.headscale_data},
-                "dir": os.path.join("segment1_network", self.headscale_data["provider"]),
+                "dir": os.path.join(
+                    "segment1_network", self.headscale_data["provider"]
+                ),
                 "filename": "main.tf",
             },
         ]
         if self.c2_data and self.c2_framework:
-            configs.append({
-                "output_type": "c2",
-                "data": {"c2_data": self.c2_data, "c2_framework": self.c2_framework},
-                "dir": os.path.join("segment2_c2", self.c2_data["provider"]),
-                "filename": "main.tf",
-            })
+            configs.append(
+                {
+                    "output_type": "c2",
+                    "data": {
+                        "c2_data": self.c2_data,
+                        "c2_framework": self.c2_framework,
+                    },
+                    "dir": os.path.join("segment2_c2", self.c2_data["provider"]),
+                    "filename": "main.tf",
+                }
+            )
         if self.phish_data:
-            configs.append({
-                "output_type": "phish",
-                "data": {"phish_data": self.phish_data},
-                "dir": os.path.join("segment3_phish", self.phish_data["provider"]),
-                "filename": "main.tf",
-            })
+            configs.append(
+                {
+                    "output_type": "phish",
+                    "data": {"phish_data": self.phish_data},
+                    "dir": os.path.join("segment3_phish", self.phish_data["provider"]),
+                    "filename": "main.tf",
+                }
+            )
         return configs
-    
+
     def update_attributes(self):
         self.general_data = self.data["general"]
         self.headscale_data = self.data["headscale"]
@@ -187,13 +222,23 @@ class ansibleVars:
             raise ValueError(
                 f"[+] '{provider}' in section '{key}' is not a valid provider. Valid providers are: {', '.join(self.valid_providers)}"
             )
-    
+
     def c2_checks(self):
         segment_c2 = self.data.get("segment_c2", {})
         count = segment_c2.get("redir_https", {}).get("count", 0)
         framework = self.data["segment_c2"]["framework"]
+
+        # update headscale users
+        item = ["redir", "c2srv"]
+        for i in item:
+            if i not in self.headscale_defaults["setup"]["user_client"]:
+                self.headscale_defaults["setup"]["user_client"].append(i)
+
+        # validate c2 framework
         chosen_frameworks = [
-            fw for fw in self.frameworks if fw in self.data.get("segment_c2", {}).get("framework", {})
+            fw
+            for fw in self.frameworks
+            if fw in self.data.get("segment_c2", {}).get("framework", {})
         ]
         domains = segment_c2.get("redir_https", {}).get("domain", "").split(", ")
 
@@ -210,7 +255,7 @@ class ansibleVars:
         elif len(domains) != len(set(domains)):
             raise ValueError("[+] All domains must be unique!")
 
-        # Define default value for C2 framework
+        # Define default value for C2 frameworks
         if "sliver" in framework:
             sliver = {
                 "version": "1.5.41",
@@ -231,17 +276,18 @@ class ansibleVars:
                 "user_agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.39 Safari/537.36 Brave/75",
             }
             self.c2_defaults["framework"]["havoc"] = havoc
-        
+
         # Check for redir_dns existence
         if "redir_dns" in self.data["segment_c2"]:
             redir_dns_default = {
                 "count": 1,
                 "subdomain": "backoffice.redteam.id",
-                "vm_hostname": "redirdns",
-                "vm_username": "node3",
+                "instance_name": "redir_dns",
+                "vm_hostname": "dns",
+                "vm_username": "redir",
             }
             self.c2_defaults["redir_dns"] = redir_dns_default
-        
+
     def merge_dicts(self, default, user_input):
         merged = user_input.copy()
         for key, value in default.items():
@@ -267,14 +313,16 @@ class ansibleVars:
 
             mapped_region = self.REGION_MAPPING[correct_region_key].get(provider, None)
             if not mapped_region:
-                raise ValueError(f"Provider {provider} not supported for region {region}")
+                raise ValueError(
+                    f"Provider {provider} not supported for region {region}"
+                )
             else:
                 data[section_name]["region"] = mapped_region
         else:
             raise ValueError(
                 f"[+] Region {region} not defined in REGION_MAPPING [southeast-asia, east-us, west-us, west-eu]"
             )
-     
+
     def ensure_dir(self, directory):
         os.makedirs(directory, exist_ok=True)
 
@@ -292,10 +340,10 @@ class ansibleVars:
         template = env.get_template(template_name)
 
         paths = {
-            'TEMPLATE_PATH': self.template_path,
-            'TERRAFORM_PATH': self.terraform_path
+            "TEMPLATE_PATH": self.template_path,
+            "TERRAFORM_PATH": self.path_terraform,
         }
-        
+
         for config in configs:
             if template_name == "headscale.j2":
                 dir_path = os.path.join(path_prefix, config["dir"])
@@ -303,9 +351,11 @@ class ansibleVars:
                 dir_path = path_prefix
             self.ensure_dir(dir_path)
 
-            output = template.render(output_type=config["output_type"], **config["data"], **paths)
+            output = template.render(
+                output_type=config["output_type"], **config["data"], **paths
+            )
             full_file_path = os.path.join(dir_path, config["filename"])
-            self.write_output_to_file(output, full_file_path)        
+            self.write_output_to_file(output, full_file_path)
 
     def generate_ansible_vars(self):
         def print_output(template_env_path, template_name, configs):
@@ -317,14 +367,20 @@ class ansibleVars:
             template = env.get_template(template_name)
             return template.render(configs)
 
+        # Validate headscale existence
         for key in self.data.keys():
             if key.startswith(("segment_", "headscale")):
                 self.validate_provider(self.data[key], key)
 
+        # Update headscale users
         if "segment_c2" in self.data:
             self.c2_checks()
-        
-        # Validate User Input
+        elif "segment_phish" in self.data:
+            self.headscale_defaults["setup"]["user_client"].extend(["phishsrv"])
+        elif "segment_siem" in self.data:
+            self.headscale_defaults["setup"]["user_client"].extend(["siem"])
+
+        # Validate user file input
         for section, default in self.defaults_mapping.items():
             if section in self.data:
                 for key in self.data[section].keys():
@@ -334,45 +390,68 @@ class ansibleVars:
                         )
 
         # Validate exp_time_preauthkeys format
-        if self.exp_time_preauthkeys and not re.match(r"^\d+[mh]$", self.exp_time_preauthkeys):
-            raise ValueError("[+] Invalid exp_time_preauthkeys format.")    
-    
-        # Merge Parameter
+        if self.exp_time_preauthkeys and not re.match(
+            r"^\d+[mh]$", self.exp_time_preauthkeys
+        ):
+            raise ValueError("[+] Invalid exp_time_preauthkeys format.")
+
+        # Merge between default parameter and client input
         for section, default in self.defaults_mapping.items():
             if section in self.data:
                 self.data[section] = self.merge_dicts(default, self.data[section])
 
-        # Dynamically check for segments
+        # Mapping region for cloud provider
         for key in self.data:
             if key.startswith("segment_") or key == "headscale":
                 self.map_region_for_section(self.data, self.region, key)
 
+        # Update data
         self.update_attributes()
 
-        ansible_template_env_path = os.path.join(self.project_path, 'templates', 'ansible_vars')
+        # Render the template
+        ansible_template_env_path = os.path.join(
+            self.project_path, "templates", "ansible_vars"
+        )
         ansible_template_name = "all.j2"
-        ansible_path_prefix = self.path_ansible_vars
+        ansible_path_prefix = os.path.join(self.path_ansible, "inventory", "group_vars")
         ansible_configs = self.ansible_configs()
 
-        terraform_template_env_path = os.path.join(self.project_path, 'templates', 'terraform_main')        
+        terraform_template_env_path = os.path.join(
+            self.project_path, "templates", "terraform_main"
+        )
         terraform_template_name = "headscale.j2"
-        terraform_path_prefix = os.path.join(self.path_terraform, self.general_data["project_name"])
+        terraform_path_prefix = os.path.join(
+            self.path_terraform, self.general_data["project_name"]
+        )
         terraform_configs = self.terraform_configs()
 
-        self.process_configs(ansible_template_env_path, ansible_template_name, ansible_configs, ansible_path_prefix)
-        self.process_configs(terraform_template_env_path, terraform_template_name, terraform_configs, terraform_path_prefix)
+        self.process_configs(
+            ansible_template_env_path,
+            ansible_template_name,
+            ansible_configs,
+            ansible_path_prefix,
+        )
+        self.process_configs(
+            terraform_template_env_path,
+            terraform_template_name,
+            terraform_configs,
+            terraform_path_prefix,
+        )
 
+        # Print output
         config_print = {
             "data": {
-                "headscale_data": self.headscale_data, 
-                "setup_data": self.setup_data, 
-                "c2_data": self.c2_data, 
-                "c2_framework": self.c2_framework, 
-                "phish_data": self.phish_data
+                "headscale_data": self.headscale_data,
+                "setup_data": self.setup_data,
+                "c2_data": self.c2_data,
+                "c2_framework": self.c2_framework,
+                "phish_data": self.phish_data,
             },
         }
 
         output_template_name = "output.j2"
-        output = print_output(terraform_template_env_path, output_template_name, config_print['data'])
+        output = print_output(
+            terraform_template_env_path, output_template_name, config_print["data"]
+        )
 
         return self.general_data["project_name"], output

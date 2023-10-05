@@ -1,30 +1,23 @@
 ---
 - name: Create Pre-Auth Key
-  command:
-    cmd: docker exec headscale headscale --user {{ item }} preauthkeys create --expiration {{ exp_time }}
+  shell:
+    cmd: docker exec headscale headscale -u {{ item }} preauthkeys create -e {{ exp_time_preauthkeys }} --reusable | grep -Eo '[a-f0-9]{48}'
     chdir: /opt/headscale
   register: pre_auth_output
-  failed_when: "'No such container' in pre_auth_output.stderr"
-  tags:
-    - create_preauth
+  failed_when: "'User not found' in pre_auth_output.stderr" 
   loop: "{{ pre_auth_user }}"
 
-- name: Write pre-auth keys to a local YAML file
+- name: print
+  debug:
+    msg: "result = {{ pre_auth_output.results | map(attribute='stdout') | list }}"
+
+- name: Extract preauthkey
+  set_fact:
+    preauthkey: "{{ pre_auth_output.results | map(attribute='stdout') | list }}"
+
+- name: Write keys to output file
   delegate_to: localhost
-  connection: local
   become: false
   template:
     src: pre_auth.j2
-    dest: ./roles/headscale/files/pre_auth_keys.yml
-  vars:
-    pre_auth_keys: "{{ pre_auth_output.results }}"
-  tags:
-    - write_preauth
-
-- name: Encrypt the pre-auth keys YAML file
-  local_action:
-    module: command
-    cmd: ansible-vault encrypt ./roles/headscale/files/pre_auth_keys.yml
-  become: false
-  tags:
-    - encrypt_preauth
+    dest: "/tmp/pre_auth_keys.yml"

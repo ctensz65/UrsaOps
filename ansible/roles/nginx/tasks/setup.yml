@@ -9,12 +9,11 @@
 
 - name: Copy custom error page
   copy:
-    src: ./asset/{{ item }}
-    dest: /var/www/html/errorpage
+    src: "{{ ansible_dir }}/asset/"
+    dest: /var/www/html/errorpage/
     owner: www-data
     group: www-data
     mode: "0644"
-  loop: "{{ custom_error_files }}"
 
 - name: Set user_agent based on c2 value
   set_fact:
@@ -26,7 +25,7 @@
 
 - name: Generate Nginx Site Conf File
   template:
-    src: "templates/nginx_profile_{{ c2 }}_{{ profile }}.j2"
+    src: "templates/nginx_profile_{{ c2 }}_{{ profile_value }}.j2"
     dest: "/etc/nginx/sites-available/{{ domain }}"
     mode: "0644"
 
@@ -40,8 +39,10 @@
   notify: Reload Nginx
 
 - name: Read Shodan IP list
+  delegate_to: localhost
+  become: no
   read_csv:
-    path: block_ips.csv
+    path: "{{ ansible_dir }}/roles/nginx/files/block_ips.csv"
     fieldnames: ["ip", "name"]
   register: shodan_ips
 
@@ -57,7 +58,7 @@
 
 - name: Generate HTTPS certificate
   command:
-    cmd: certbot certonly --nginx -d '{{ domain }}' -m {{ email_certbot }} --agree-tos -n --staging
+    cmd: certbot certonly --nginx -d '{{ domain }}' -m noemail@{{ domain }} --agree-tos -n --staging
   when: not cert_file.stat.exists
 
 - name: Find the correct certificate directory

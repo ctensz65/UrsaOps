@@ -1,11 +1,12 @@
 {## ==================== Azure ==================== ##}
-{%- macro azure_instance_module(suffix, data, inbound, current_index=None) %}
+{% macro azure_instance_module(suffix, data, inbound, current_index=None) %}
 module "{{ suffix }}" {
   source              = "{{ TERRAFORM_PATH }}/modules/azure"
-  resource_group_name = "segment_c2_resources"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   instance_name       = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
-  username_vm         = "{{ data.vm_username }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
+  username_vm         = "{{ data.vm_username }}"
   vm_size             = "Standard_B1s"
   tags_segment        = "{{ suffix }}"
   inbound_rules       = {{ inbound | tojson }}
@@ -18,7 +19,7 @@ module "{{ suffix }}" {
   instance_name       = "{{ suffix }}"
   tag_name            = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
-  username_vm         = "{{ data.vm_username }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
+  username_vm         = "{{ data.vm_username }}"
   
   ingress_rules       = {{ ingress_rules | tojson }}
 
@@ -31,20 +32,26 @@ module "{{ suffix }}" {
 }
 {% endmacro -%}
 {%- set https_data = c2_data.redir_https %}
+
 {## ==================== Azure ==================== ##}
-{%- if c2_data.provider == "azure" -%}
+{% if c2_data.provider == "azure" -%}
+resource "azurerm_resource_group" "rg" {
+  name     = "segment_c2_resources"
+  location = "{{ c2_data.region }}"
+}
+
 {% set https_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "443", "protocol": "Tcp" }, { "port": "80", "protocol": "Tcp" }] %}
   {% for _ in range(https_data.count) %}
-{{ azure_instance_module('redir_https' + ('_' + loop.index|string if https_data.count > 1 else ''), https_data, https_inbound, loop.index if https_data.count > 1 else None) }}
+{{ azure_instance_module(https_data.instance_name + ('_' + loop.index|string if https_data.count > 1 else ''), https_data, https_inbound, loop.index if https_data.count > 1 else None) }}
   {% endfor %}
 
 {% if c2_data.get('redir_dns') %}
 {% set dns_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "53", "protocol": "Udp" }] %}
-{{ azure_instance_module('redir_dns', c2_data.redir_dns, dns_inbound) }}
+{{ azure_instance_module(c2_data.redir_dns.instance_name, c2_data.redir_dns, dns_inbound) }}
 {%- endif %}
 
 {% set srv_inbound = [{ "port": "22", "protocol": "Tcp" }] %}
-{{ azure_instance_module('c2_srv', c2_framework, srv_inbound) }}
+{{ azure_instance_module(c2_framework.instance_name, c2_framework, srv_inbound) }}
 
 {## ==================== AWS ==================== ##}
 {%- elif c2_data.provider == "aws" -%}
@@ -54,7 +61,7 @@ module "{{ suffix }}" {
   ]
 %}
   {% for _ in range(https_data.count) %}
-{{ aws_instance_module('redir_https' + ('_' + loop.index|string if https_data.count > 1 else ''), https_data, https_inbound, loop.index if https_data.count > 1 else None) }}
+{{ aws_instance_module(https_data.instance_name + ('_' + loop.index|string if https_data.count > 1 else ''), https_data, https_inbound, loop.index if https_data.count > 1 else None) }}
   {% endfor %}
 
 {%- if c2_data.get('redir_dns') %}
@@ -63,25 +70,25 @@ module "{{ suffix }}" {
     { "from_port": 53, "to_port": 53, "protocol": "udp", "cidr_blocks": ["0.0.0.0/0"] }  
   ] 
 %}
-{{ aws_instance_module('redir_dns', c2_data.redir_dns, dns_inbound) }}
+{{ aws_instance_module(c2_data.redir_dns.instance_name, c2_data.redir_dns, dns_inbound) }}
 {%- endif %}
 
 {% set c2_inbound = [
     { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] }  
   ] 
 %}
-{{ aws_instance_module('c2_srv', c2_framework, c2_inbound) }}
+{{ aws_instance_module(c2_framework.instance_name, c2_framework, c2_inbound) }}
 {% endif -%}
 
 locals {
   c2_instances = [
 {% for _ in range(https_data.count) %}
-    module.redir_https{% if https_data.count > 1 %}_{{ loop.index }}{% endif %}.instance_details,
+    module.{{ https_data.instance_name }}{{ ('_' + loop.index|string if https_data.count > 1 else '') }}.instance_details,
 {% endfor %}
 {%- if c2_data.get('redir_dns') %}
-    module.redir_dns.instance_details,
+    module.{{ c2_data.redir_dns.instance_name }}.instance_details,
 {% endif %}
-    module.c2_srv.instance_details
+    module.{{ c2_framework.instance_name }}.instance_details
   ]
 
   inventory_content = templatefile("{{ TEMPLATE_PATH }}", {
@@ -96,3 +103,18 @@ resource "local_file" "ansible_inventory" {
   filename = "${path.root}/inventory.ini"
 }
 
+output "c2_instance_passwords" {
+  value = [for instance in local.c2_instances : instance.pass if lookup(instance, "pass", null) != null]
+  sensitive = true
+}
+
+output "c2_instance_ssh_details" {
+  value = [for instance in local.c2_instances : "${instance.hostname} = ssh ${instance.user}@${instance.ip}"]
+}
+
+{% if c2_data.provider == "azure" -%}
+provider "azurerm" {
+  skip_provider_registration = "true"
+  features {}
+}
+{% endif %}

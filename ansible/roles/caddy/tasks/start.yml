@@ -10,4 +10,4 @@
   when: caddy_process.rc == 0
 
 - name: Start Caddyserver
-  shell: nohup caddy run --config /var/lib/Caddyfile > /dev/null 2>&1 &
+  shell: nohup caddy run --config {{ path_caddy }}/Caddyfile > /dev/null 2>&1 &
