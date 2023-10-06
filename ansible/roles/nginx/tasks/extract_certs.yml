@@ -1,0 +1,22 @@
+---
+- name: Ensure errorpage directory exists
+  delegate_to: localhost
+  become: no
+  file:
+    path: "{{ ansible_dir }}/roles/c2_sliver/files/"
+    state: directory
+    mode: "0755"
+
+- name: Copy Let's Encrypt fullchain.pem for Sliver
+  fetch:
+    src: /etc/letsencrypt/live/{{ domain }}/fullchain.pem
+    dest: "{{ ansible_dir }}/roles/c2_sliver/files/cert.pem"
+    flat: yes
+    mode: "0644"
+
+- name: Copy Let's Encrypt privkey.pem for Sliver
+  fetch:
+    src: /etc/letsencrypt/live/{{ domain }}/privkey.pem
+    dest: "{{ ansible_dir }}/roles/c2_sliver/files/key.pem"
+    flat: yes
+    mode: "0600"

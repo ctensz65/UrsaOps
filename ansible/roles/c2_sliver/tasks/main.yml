@@ -1,10 +1,4 @@
 ---
-- name: Download Sliver client binary
-  get_url:
-    url: "https://github.com/BishopFox/sliver/releases/download/{{ version_sliver }}/sliver-client_linux"
-    dest: "/usr/local/bin/sliver"
-    mode: "0755"
-
 - name: Download Sliver server binary
   get_url:
     url: "https://github.com/BishopFox/sliver/releases/download/{{ version_sliver }}/sliver-server_linux"
@@ -36,31 +30,31 @@
       WantedBy=multi-user.target
     mode: "0600"
 
-- name: Start sliver service
-  systemd:
-    name: sliver
-    state: started
-    enabled: yes
-    daemon_reload: yes
+- name: Start Sliver Server
+  command: echo "[+] Starting sliver server"
+  notify: start_sliver
+  changed_when: true
 
-- name: Create .sliver-client directory
+- name: Delete existing operator profile
   file:
-    path: /home/{{ ansible_user }}/.sliver-client/configs
-    state: directory
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-    mode: "0755"
+    path: "/tmp/{{ name_sliver_operator }}.cfg"
+    state: absent
 
-- name: Create sliver operator profile
+- name: Create sliver operator profile [Localhost]
   command:
-    cmd: sliver-server operator --name {{ name_sliver_operator }} --lhost localhost --save /home/{{ ansible_user }}/.sliver-client/configs
+    cmd: sliver-server operator --name {{ name_sliver_operator }} --lhost localhost --save /tmp/{{ name_sliver_operator }}.cfg
+  when: jumphost is not defined or not jumphost
 
-- name: Set permission of the operator profile
-  file:
-    path: /home/{{ ansible_user }}/.sliver-client/configs/{{ name_sliver_operator }}_localhost.cfg
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-    mode: "0600"
+- name: Create sliver operator profile [Jumphost]
+  command:
+    cmd: sliver-server operator --name {{ name_sliver_operator }} --lhost {{ ip_tailscale_c2 }} --save /tmp/{{ name_sliver_operator }}.cfg
+  when: jumphost | default(false)
+
+- name: Copy sliver operator profile
+  fetch:
+    src: /tmp/{{ name_sliver_operator }}.cfg
+    dest: "{{ ansible_dir }}/roles/c2_sliver/files/"
+    flat: yes
 
 - name: Generate Sliver HTTP Profile from template
   template:
@@ -70,18 +64,10 @@
     group: root
     mode: "0600"
 
-- name: Copy Let's Encrypt fullchain.pem for Sliver
-  copy:
-    src: ./roles/c2_sliver/files/cert.pem
-    dest: /home/{{ ansible_user }}/.sliver-client/cert.pem
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-    mode: "0644"
+- name: Restart Sliver Server
+  notify: restart_sliver
+  changed_when: true
 
-- name: Copy Let's Encrypt privkey.pem for Sliver
-  copy:
-    src: ./roles/c2_sliver/files/key.pem
-    dest: /home/{{ ansible_user }}/.sliver-client/key.pem
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-    mode: "0600"
+- name: Setup Sliver Client
+  include_tasks: "client.yml"
+  when: jumphost is not defined or not jumphost

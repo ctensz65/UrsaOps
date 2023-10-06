@@ -266,7 +266,7 @@ class ansibleVars:
         elif "cobaltstrike" in framework:
             cobaltstrike = {
                 "user_agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.39 Safari/537.36 Brave/75",
-                "archieve_file_path": "/opt/cobaltstrike.tar.gz",
+                "archieve_filename": "cobaltstrike.tar.gz",
                 "profile": "webbug_getonly.profile",
             }
             self.c2_defaults["framework"]["cobaltstrike"] = cobaltstrike

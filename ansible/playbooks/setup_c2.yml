@@ -1,9 +1,4 @@
----
-- hosts: all
-  gather_facts: no
-  tasks:
-    - include_vars: /home/leroy/UrsaOps/ansible/inventory/group_vars/all.yml
-  
+---  
 - name: Check if group_redir_https exists and has members
   hosts: localhost
   gather_facts: no
@@ -21,20 +16,25 @@
         groups: temp_redir_https_group
       loop: "{{ redirector.https }}"
       when: use_redirector_var | default(false)
+    
   tags:
     - count_redir
 
-- name: Print OK
+- name: Validate total redirector HTTPs
   hosts: group_redir_https:temp_redir_https_group
   tasks:
-    - name: Print
+    - name: Check number of hosts in temp_redir_https_group
       debug:
-        msg: "One Redirector! {{ c2_machine }}"
-      when: "'temp_redir_https_group' in group_names"
-    - name: Print
+        msg: "Only One Redirector Defined in temp_redir_https_group!"
+      when: (groups['temp_redir_https_group'] | default([])) | length == 1
+
+    - name: Check number of hosts in group_redir_https
       debug:
-        msg: "Two Redirector!"
-      when: "'group_redir_https' in group_names"
+        msg: "Found Two Redirectors in group_redir_https!"
+      when: (groups['group_redir_https'] | default([])) | length == 2
+      
+  tags:
+    - count_redir
 
 - name: Setup DNS based on provider
   hosts: group_redir_https:temp_redir_https_group
@@ -110,7 +110,7 @@
     - setup_redir
 
 - name: Setup CoreDNS for DNS Redirector
-  hosts: "{{ redirector.dns | default('redirector_dns') }}"
+  hosts: "{{ redir_dns | default('redirector_dns') }}"
   become: yes
   tasks:
     - include_role:
@@ -120,76 +120,65 @@
   tags:
     - setup_coredns
 
-- name: Generate Keystore for CS
+- name: Sync Certificates
   hosts: group_redir_https:temp_redir_https_group
   become: yes
+
   tasks:
-    - include_role:
+    - name: Generate Keystore for [CS]
+      include_role:
         name: nginx
         tasks_from: keystore_cs
       when: c2 == 'cobalt'
-  tags:
-    - keystore_cs
+      tags:
+        - keystore_cs
 
-- name: Copy Let's Encrypt Certificates for Sliver C2
-  hosts: group_redir_https:temp_redir_https_group
-  become: yes
-  tasks:
-    - name: Copy Let's Encrypt fullchain.pem for Sliver
-      fetch:
-        src: /etc/letsencrypt/live/{{ domain }}/fullchain.pem
-        dest: "{{ ansible_dir }}/roles/c2_sliver/files/cert.pem"
-        flat: yes
-        mode: "0644"
+    - name: Copy Let's Encrypt Certificates for [Sliver]
+      include_role:
+        name: nginx
+        tasks_from: extract_certs
       when: c2 == 'sliver'
+      tags:
+        - cert_sliver
 
-    - name: Copy Let's Encrypt privkey.pem for Sliver
-      fetch:
-        src: /etc/letsencrypt/live/{{ domain }}/privkey.pem
-        dest: "{{ ansible_dir }}/roles/c2_sliver/files/key.pem"
-        flat: yes
-        mode: "0600"
-      when: c2 == 'sliver'
-  tags:
-    - cert_sliver
-
-- name: Setup C2 [Cobalt Strike 4.7]
-  hosts: "{{ c2_machine }}"
+- name: Setup C2 [Cobalt Strike]
+  hosts: "{{ c2_machine | default('c2srv') }}"
   become: yes
-  tasks:
-    - include_role:
-        name: c2_cobalt
-        tasks_from: main
-      when: c2 == 'cobalt'
-  tags:
-    - setup_cs
 
-- name: Setup CobaltStrike - Teamserver
-  hosts: "{{ c2_machine }}"
-  become: yes
   tasks:
-    - include_role:
-        name: c2_cobalt
-        tasks_from: teamserver
+    - block:
+        - name: Check archive file existence
+          include_role:
+            name: c2_cobalt
+
+        - name: Setup CobaltStrike - Teamserver
+          include_role:
+            name: c2_cobalt
+            tasks_from: teamserver
+
       when: c2 == 'cobalt'
+
   tags:
     - setup_cs
 
 - name: Setup C2 [Havoc]
-  hosts: "{{ c2_machine }}"
+  hosts: "{{ c2_machine | default('c2srv') }}"
   become: yes
   vars:
     go_version_18: true
+  
+  pre_tasks:
+    - name: Check Golang Installation
+      include_tasks: "{{ ansible_dir }}/roles/common/tasks/go.yml"
+
   tasks:
-    - include_role:
-        name: common
-        tasks_from: go
-      when: c2 == 'havoc'
-    - include_role:
+    - name: Clone Repo
+      include_role:
         name: c2_havoc
-        tasks_from: main
       when: c2 == 'havoc'
-    - include_role:
+    
+    - name: Setup Teamserver
+      include_role:
         name: c2_havoc
         tasks_from: teamserver
       when: c2 == 'havoc'
@@ -197,38 +186,52 @@
     - setup_havoc
 
 - name: Setup C2 [Sliver]
-  hosts: "{{ c2_machine }}"
+  hosts: "{{ c2_machine | default('c2srv') }}"
   become: yes
+  
+  pre_tasks:
+    - name: Check Golang Installation
+      include_tasks: "{{ ansible_dir }}/roles/common/tasks/go.yml"
+  
   tasks:
-    - include_role:
+    - name: Setup C2 Server
+      include_role:
         name: c2_sliver
         tasks_from: main
       when: c2 == 'sliver'
+
+    - name: Setup C2 Client
+      include_role:
+        name: c2_sliver
+        tasks_from: client
+      when:
+        - c2 == 'sliver'
+        - jumphost | default(false)
   tags:
     - setup_sliver
 
-- name: Disable System Resolved Service
-  hosts: "{{ redirector.dns }}"
+- name: Configure DNS for C2 [Sliver]
+  hosts: "{{ redir_dns | default('redirector_dns') }}"
   become: yes
+
   tasks:
-    - include_role:
+    - name: Disable System Resolved Service
+      include_role:
         name: common
         tasks_from: system_resolved
       when:
-        - redirdns == 'true'
+        - redirdns is defined
         - c2 == 'sliver'
-  tags:
-    - disable_resolved
+      tags:
+        - disable_resolved
 
-- name: Start CoreDNS
-  hosts: "{{ redirector.dns }}"
-  become: yes
-  tasks:
-    - include_role:
+    - name: Start CoreDNS
+      include_role:
         name: coredns
         tasks_from: start
       when:
-        - redirdns == 'true'
+        - redirdns is defined
         - c2 == 'sliver'
-  tags:
-    - start_coredns
+      tags:
+        - start_coredns
+

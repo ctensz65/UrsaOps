@@ -18,6 +18,7 @@ ansible/artifacts/
 __pycache__/
 *.py[cod]
 *$py.class
+__init__.py
 
 # C extensions
 *.so
@@ -188,3 +189,5 @@ ansible/inventory/*
 ansible/roles/headscale/files/pre_auth_keys.yml
 ansible/roles/headscale/files/routes.yml
 terraform/engagement_2/*
+ansible/roles/c2_sliver/files/
+ansible/roles/gophish/files

@@ -5,7 +5,6 @@ from python_terraform import *
 import yaml
 import argparse
 import logging
-import socket
 
 from generate_vars import ansibleVars
 from generate_inventory import *

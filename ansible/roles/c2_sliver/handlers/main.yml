@@ -1,0 +1,14 @@
+---
+- name: start_sliver
+  systemd:
+    name: sliver.service
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: restart_sliver
+  systemd:
+    name: sliver.service
+    state: restarted
+    enabled: yes
+    daemon_reload: yes

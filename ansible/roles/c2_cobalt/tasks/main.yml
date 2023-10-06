@@ -9,22 +9,22 @@
 
 - name: Check cs archive file
   stat:
-    path: /tmp/cobaltstrike47.tar.xz
+    path: "/tmp/{{ archieve_filename }}"
   register: file_status
 
 - name: Show message if file exists
   debug:
-    msg: "Great! The file cobaltstrike47 archive file exists."
+    msg: "Great! The archive file of cobalt strike exists."
   when: file_status.stat.exists
 
 - name: Show message and fail if file does not exist
   fail:
-    msg: "The file cobaltstrike47.tar.xz does not exist. Please transfer it using scp/sftp"
+    msg: "The file {{ archieve_filename }} does not exist. Please transfer it using scp/sftp to folder /tmp"
   when: not file_status.stat.exists
 
-- name: Extract CS47.tar.xz archive
+- name: Extract CS archive
   unarchive:
-    src: /tmp/cobaltstrike47.tar.xz
+    src: "/tmp/{{ archieve_filename }}"
     dest: /opt/
     remote_src: yes
   when: file_status.stat.exists

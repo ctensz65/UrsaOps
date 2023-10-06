@@ -1,0 +1,45 @@
+---
+- name: Download Sliver client binary
+  get_url:
+    url: "https://github.com/BishopFox/sliver/releases/download/{{ version_sliver }}/sliver-client_linux"
+    dest: "/usr/local/bin/sliver"
+    mode: "0755"
+
+- name: Create .sliver-client directory
+  file:
+    path: /home/{{ ansible_user }}/.sliver-client/configs
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+
+- name: Copy sliver operator profile
+  copy:
+    src: "{{ ansible_dir }}/roles/c2_sliver/files/{{ name_sliver_operator }}.cfg"
+    dest: /home/{{ ansible_user }}/.sliver-client/configs/
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+
+- name: Set permission of the operator profile
+  file:
+    path: /home/{{ ansible_user }}/.sliver-client/configs/{{ name_sliver_operator }}.cfg
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+
+- name: Copy Let's Encrypt fullchain.pem for Sliver
+  copy:
+    src: "{{ ansible_dir }}/roles/c2_sliver/files/cert.pem"
+    dest: /home/{{ ansible_user }}/.sliver-client/cert.pem
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+
+- name: Copy Let's Encrypt privkey.pem for Sliver
+  copy:
+    src: "{{ ansible_dir }}/roles/c2_sliver/files/key.pem"
+    dest: /home/{{ ansible_user }}/.sliver-client/key.pem
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"

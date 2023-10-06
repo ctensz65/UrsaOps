@@ -1,4 +1,0 @@
----
-dependencies:
-  - role: common
-    tasks_from: go.yml

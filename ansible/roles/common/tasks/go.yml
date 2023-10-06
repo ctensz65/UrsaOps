@@ -4,6 +4,18 @@
     name: snapd
     state: present
 
+- name: Check if default Go version is installed
+  shell:
+    cmd: "/usr/bin/go version | /usr/local/go/bin/go version"
+  register: go_installed
+  failed_when: false
+  changed_when: false
+
+- name: Ensure snap is installed
+  debug:
+    msg: "{{ go_installed }}"
+  when: go_installed is defined
+
 - name: Remove symbolic link /usr/bin/go
   file:
     path: /usr/bin/go
@@ -18,13 +30,6 @@
     recurse: yes
   become: yes
   when: "'/lib/go1.13' in go_installed.stdout"
-
-- name: Check if Go is installed
-  command:
-    cmd: "go version"
-  register: go_installed
-  failed_when: false
-  changed_when: false
 
 - name: Download Golang Package
   get_url:
@@ -44,6 +49,16 @@
   lineinfile:
     path: /etc/profile
     line: "export PATH=$PATH:/usr/local/go/bin"
+  when: go_version_18
+
+- name: Ensure Go path is in root's .bashrc
+  become: yes
+  become_user: root
+  lineinfile:
+    path: /root/.bashrc
+    line: "export PATH=$PATH:/usr/local/go/bin"
+    create: yes
+    state: present
   when: go_version_18
 
 - name: Install Go using snap if not installed manually
