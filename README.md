@@ -61,23 +61,17 @@ Before executing any of the following steps, ensure you've installed all the Req
 ```bash
   export URSAOPS_ROOT="/path/to/UrsaOps"
 ```
-- **Generate Ansible Variables**
-  
-  Generate necessary variables for Ansible configurations based on the given input.
-```bash
-  python3 main.py generate_vars input.yaml
-```
-- **Deploy**
+- **Generate Ansible Variables, Terraform Files, & Deploy**
 
-  Initiate the deployment process of the red team infrastructure.
+  Generate necessary variables for Ansible configurations based on the given input and initiate the deployment process of the red team infrastructure. You will be prompted to confirm deployment. Enter "y" to continue.
 ```bash
-  python3 main.py deploy
+  python3 main.py deploy operator_input.yml
 ```
-- **Check State**
+- **Start Provisioning**
 
-  Review the current state of the deployed infrastructure.
+  Begin the provisioning process to set up the infrastructure based on the configurations provided.
 ```bash
-  python3 main.py state
+  python3 main.py provisioning
 ```
 - **Destroy**
 

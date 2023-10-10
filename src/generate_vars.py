@@ -2,7 +2,6 @@ import yaml
 import re
 import os
 from jinja2 import Environment, FileSystemLoader
-import json
 import shutil
 
 
