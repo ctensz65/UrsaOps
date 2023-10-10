@@ -33,25 +33,22 @@ resource "aws_instance" "main" {
   instance_type          = var.instance_type
   key_name               = aws_key_pair.key.key_name
   vpc_security_group_ids = [aws_security_group.secgroup.name]
-  
+
   tags = {
     Name = var.tag_name
   }
 
-  user_data = <<-EOF
-              #!/bin/bash
-              hostnamectl set-hostname ${var.computer_name}
-              EOF
-
   provisioner "remote-exec" {
     inline = [
-      "sudo apt-get update",
+      "sudo sed -i '/^127.0.0.1/c\\127.0.0.1 ${var.computer_name} localhost.localdomain localhost' /etc/hosts",
+      "sudo hostnamectl set-hostname ${var.computer_name}",
+      "sudo apt-get update -y",
       "sudo apt-get upgrade -y"
     ]
 
     connection {
       type        = "ssh"
-      user        = var.username_vm
+      user        = "ubuntu"
       private_key = file(local.resolved_private_key_path)
       host        = self.public_ip
     }

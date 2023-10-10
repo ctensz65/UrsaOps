@@ -63,10 +63,7 @@
     owner: root
     group: root
     mode: "0600"
-
-- name: Restart Sliver Server
   notify: restart_sliver
-  changed_when: true
 
 - name: Setup Sliver Client
   include_tasks: "client.yml"

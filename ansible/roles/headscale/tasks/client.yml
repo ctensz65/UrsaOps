@@ -41,7 +41,15 @@
     msg: "{{ pre_auth_key }}"
   when: pre_auth_key is defined
 
+- name: Check Tailscale connection status
+  command: "tailscale ip"
+  register: tailscale_status
+  ignore_errors: true
+  changed_when: false
+
 - name: Connect the client to headscale controlplane
   command:
     cmd: "tailscale up --login-server {{ url }} --authkey {{ pre_auth_key }} --accept-routes"
-  when: pre_auth_key is defined
+  when: 
+    - pre_auth_key is defined
+    - "'NeedsLogin' in tailscale_status.stderr"

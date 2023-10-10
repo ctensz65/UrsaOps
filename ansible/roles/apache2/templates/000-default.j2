@@ -46,7 +46,7 @@ Timeout 60
     SSLProxyCheckPeerExpire off
 
     SSLCertificateFile /etc/letsencrypt/live/{{ domain_phish }}/fullchain.pem
-    SSLCertificateKeyFile /etc/letsencrypt/live/{{ domain_phish }}/privkey.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/{{ domain_phish }}/key.pem
     
     ProxyPass /errorpage/ !
     ProxyPreserveHost On
@@ -75,7 +75,7 @@ Timeout 60
 
     SSLEngine on
     SSLCertificateFile /etc/letsencrypt/live/{{ domain_phish }}/fullchain.pem
-    SSLCertificateKeyFile /etc/letsencrypt/live/{{ domain_phish }}/privkey.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/{{ domain_phish }}/key.pem
 
     ErrorLog ${APACHE_LOG_DIR}/error_8080.log
     CustomLog ${APACHE_LOG_DIR}/access_8080.log common

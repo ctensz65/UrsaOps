@@ -1,0 +1,106 @@
+---
+- name: Clone Repo acme.sh
+  git:
+    repo: "https://github.com/acmesh-official/acme.sh"
+    dest: "{{ git_clone_dest }}"
+    update: "false"
+
+- name: Install acme.sh
+  command: >-
+    ./acme.sh --install --log
+    --days {{ renew_time }}
+    {{ "--accountemail " + email_certbot if email_certbot else "" }}
+  args:
+    chdir: "{{ git_clone_dest }}"
+
+- name: Setup default CA to letsencrypt
+  command: >-
+    ./acme.sh --set-default-ca --server letsencrypt
+  args:
+    chdir: "{{ path_acme }}"
+
+- name: Issue acme.sh certificate(s)
+  command: >-
+    ./acme.sh --issue -d *.{{ domain_phish }} -d {{ domain_phish }}
+    --dns --yes-I-know-dns-manual-mode-enough-go-ahead-please -k 2048 --no-color
+  args:
+    chdir: "{{ path_acme }}"
+  when:
+    - dns_provider == 'manual'
+  register: issue_result
+  ignore_errors: true
+
+- name: Please add the DNS TXT record manually
+  pause:
+    prompt: "If you have updated the DNS TXT record and changes have propagated, press enter to continue..."
+  when:
+    - dns_provider == 'manual' 
+
+- name: Force renew acme.sh certificate(s)
+  command: >-
+    ./acme.sh --renew -d *.{{ domain_phish }} -d {{ domain_phish }} --yes-I-know-dns-manual-mode-enough-go-ahead-please --force
+  args:
+    chdir: "{{ path_acme }}"
+  when:
+    - dns_provider == 'manual'
+  register: renew_result
+  ignore_errors: true
+
+- name: Ensure certificates dir path exists
+  file:
+    path: "{{ cert_path }}/{{ domain_phish }}/"
+    state: directory
+    mode: "0755"
+
+- name: Install acme.sh certificate(s)
+  command: >-
+    ./acme.sh --install-cert -d '*.{{ domain_phish }}'
+    --key-file {{ cert_path }}/{{ domain_phish }}/key.pem
+    --cert-file {{ cert_path }}/{{ domain_phish }}/cert.pem
+    --fullchain-file {{ cert_path }}/{{ domain_phish }}/fullchain.pem
+    --reloadcmd "{{ reload_cmd }}"
+  args:
+    chdir: "{{ path_acme }}"
+  when:
+    - dns_provider == 'manual' 
+  register: install_cert_result
+  failed_when: install_cert_result.rc != 0 and "Reload error for" not in install_cert_result.stderr
+
+# - name: Obtain Let's Encrypt certificate using Manual DNS
+#   expect:
+#     command: >
+      # certbot certonly
+      # --manual
+      # --preferred-challenges=dns
+      # -d '{{ domain_phish }}' -d '*.{{ domain_phish }}'
+      # --agree-tos
+      # -m {{ email_certbot }}
+      # --server https://acme-v02.api.letsencrypt.org/directory
+#     responses:
+#       'Are you OK with your IP being logged?': 'Y'
+#   when: dns_provider == 'manual'
+#   register: certbot_output
+#   ignore_errors: true
+
+# - name: Check if ACME DNS challenge is correctly set
+#   command: "dig +short TXT _acme-challenge.{{ domain_phish }}"
+#   register: dig_result
+#   until: acme_challenges[0] in dig_result.stdout or acme_challenges[1] in dig_result.stdout  # adjust as needed based on the number of challenges
+#   retries: 10
+#   delay: 30
+
+# - name: Obtain Let's Encrypt certificate using Manual DNS
+#   expect:
+#     command: >
+#       certbot certonly
+#       --manual
+#       --preferred-challenges=dns
+#       -d '{{ domain_phish }}' -d '*.{{ domain_phish }}'
+#       --agree-tos
+#       -m {{ email_certbot }}
+#       --no-eff-email
+#       --server https://acme-v02.api.letsencrypt.org/directory
+#     responses:
+#       "Press Enter to Continue": "\n"
+#   when: not cert_file.stat.exists
+#   register: certbot_output

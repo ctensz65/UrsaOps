@@ -1,0 +1,7 @@
+---
+git_clone_dest: "/usr/local/lib/acme.sh"
+renew_time: 90
+default_dns_sleep: 120
+reload_cmd: "service apache2 force-reload"
+cert_path: "/etc/letsencrypt/live"
+path_acme: "~/.acme.sh/"

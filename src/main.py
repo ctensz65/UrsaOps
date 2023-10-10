@@ -67,11 +67,16 @@ class wrapper:
                     main_tf_path = os.path.join(cloud_provider_path, "main.tf")
                     if os.path.isfile(main_tf_path):
                         self.main_tf_files.append(cloud_provider_path)
-        return self.main_tf_files
+        matches = [
+            re.search(r"segment\d+_(\w+)", file).group(1)
+            for file in self.main_tf_files
+            if re.search(r"segment\d+_(\w+)", file)
+        ]
+        return self.main_tf_files, matches
 
     def tform_init(self, tf, tf_directory):
         print(
-            f"{Color.YELLOW}====================== Initializing Terraform in {tf_directory}{Color.END}\n"
+            f"\n{Color.YELLOW}====================== Initializing Terraform in {tf_directory}{Color.END}\n"
         )
 
         return_code, stdout, stderr = tf.init()
@@ -124,7 +129,57 @@ class wrapper:
             print(stderr)
 
     def process(self, action):
-        main_tf_files = self.search_maintf()
+        main_tf_files, segments = self.search_maintf()
+
+        def choose_deployment_segment():
+            input_message = "\nWhich segment would you like to deploy with terraform?\n"
+            for index, item in enumerate(segments):
+                input_message += f"{index + 1}) {item}\n"
+
+            input_message += f"{len(segments) + 1}) all\n"
+            input_message += f"{len(segments) + 2}) exclude certain segments\n"
+            input_message += "\nYour choice: "
+
+            while True:
+                user_input = input(input_message)
+
+                # Check if input is valid
+                if user_input.isdigit() and 1 <= int(user_input) <= len(segments) + 2:
+                    user_choice = int(user_input)
+
+                    # User selected a specific segment.
+                    if 1 <= user_choice <= len(segments):
+                        to_be_deploy = [segments[user_choice - 1]]
+                        break
+
+                    # User selected all segments.
+                    elif user_choice == len(segments) + 1:
+                        to_be_deploy = segments
+                        break
+
+                    # User chose to exclude certain segments.
+                    elif user_choice == len(segments) + 2:
+                        excluded_segments = input(
+                            "\nWhich segments would you like to exclude? (comma-separated): "
+                        ).split(",")
+                        to_be_deploy = [
+                            segment
+                            for segment in segments
+                            if segment not in excluded_segments
+                        ]
+                        break
+
+                print("Invalid choice. Please try again.")
+            print("Deploying on segment(s): " + ", ".join(to_be_deploy))
+            return to_be_deploy
+
+        to_be_deploy = choose_deployment_segment()
+        main_tf_files = [
+            path
+            for path in main_tf_files
+            for segment in to_be_deploy
+            if segment in path
+        ]
 
         for tf_directory in main_tf_files:
             # plan_out_file = os.path.join(tf_directory, "terraform.tfplan")
@@ -158,8 +213,8 @@ class wrapper:
             print(
                 f"{Color.YELLOW}====================== Perform Provisioning on {segment}{Color.END}\n"
             )
-            playbook_name = self.map_playbook[segment]
-            playbook_path = f"{self.ansible_playbook_path}/{playbook_name}"
+            playbook_path = f"playbooks/{self.map_playbook[segment]}"
+
             r = ansible_runner.run(
                 private_data_dir=BASE_DIR_ANSIBLE,
                 playbook=playbook_path,
@@ -227,22 +282,22 @@ def main():
         print(output)
 
         confirmation = (
-            input("Does everything look okay? Type 'yes' to continue deploying: ")
+            input("\nDoes everything look okay? Type 'yes' to continue deploying: ")
             .strip()
             .lower()
         )
         if confirmation == "yes":
-            print("\n")
             instance = wrapper(project_name)
             instance.process(args.command)
         else:
             logging.info("Aborting the process")
+
     elif args.command == "provisioning":
         project_name = check_ansible_vars("all.yml", "project_name")
         project_path = f"{BASE_DIR_TERRAFORM}/{project_name}"
 
         instance = wrapper(project_name)
-        segments = instance.search_maintf()
+        segments, _ = instance.search_maintf()
         segments = [
             re.search(r"/segment[^/]+", path).group(0)[1:]
             if re.search(r"/segment[^/]+", path)
@@ -254,14 +309,15 @@ def main():
             print(f"Found the currect project !\n{project_name}")
             for segment in segments:
                 print(" - " + segment)
-            user_input = input(f"Start the provisioning? [y/N]")
+            user_input = input(f"Start the provisioning? [y/N] > ")
             if user_input.lower() == "y":
                 logging.info("OK")
                 # for segment in segments:
                 #     instance.provision(segment)
-                instance.provision(segments[0])
+                instance.provision(segments[1])
             else:
                 logging.info("Operation cancelled by the user.")
+
     elif args.command == "destroy":
         project_path, project_name = check_ansible_vars("all.yml", "project_name")
 

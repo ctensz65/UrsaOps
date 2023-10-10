@@ -2,6 +2,8 @@ import yaml
 import re
 import os
 from jinja2 import Environment, FileSystemLoader
+import json
+import shutil
 
 
 class ansibleVars:
@@ -11,7 +13,7 @@ class ansibleVars:
 
         self.project_path = ursaops_root
         self.template_path = os.path.join(
-            ursaops_root, "templates/terraform_main/inventory.tftpl"
+            ursaops_root, "templates/terraform/inventory.tftpl"
         )
         self.path_terraform = os.path.join(ursaops_root, "terraform")
         self.path_ansible = os.path.join(ursaops_root, "ansible")
@@ -124,6 +126,7 @@ class ansibleVars:
         self.phish_data = None
 
     def ansible_configs(self):
+        path_dest = os.path.join(self.path_ansible, "inventory", "group_vars")
         configs = [
             {
                 "output_type": "all",
@@ -136,6 +139,30 @@ class ansibleVars:
                     "ansible_dir": self.path_ansible,
                 },
                 "filename": "all.yml",
+            },
+            {
+                "output_type": "network",
+                "data": {
+                    "general_data": self.general_data,
+                    "setup_data": self.setup_data,
+                    "headscale_data": self.headscale_data,
+                    "c2_data": self.c2_data,
+                    "phish_data": self.phish_data,
+                    "ansible_dir": self.path_ansible,
+                },
+                "filename": "network.yml",
+            },
+            {
+                "output_type": "extravars",
+                "data": {
+                    "general_data": self.general_data,
+                    "setup_data": self.setup_data,
+                    "headscale_data": self.headscale_data,
+                    "c2_data": self.c2_data,
+                    "phish_data": self.phish_data,
+                    "ansible_dir": self.path_ansible,
+                },
+                "filename": "extravars",
             },
         ]
         if self.c2_data and self.c2_framework:
@@ -165,9 +192,24 @@ class ansibleVars:
         else:
             print("[+] Nevermind, You don't define Phishing Segment")
 
-        return configs
+        return configs, path_dest
+
+    def print_config(self):
+        path = os.path.join(self.project_path, "templates", "terraform")
+        config = {
+            "data": {
+                "headscale_data": self.headscale_data,
+                "setup_data": self.setup_data,
+                "c2_data": self.c2_data,
+                "c2_framework": self.c2_framework,
+                "phish_data": self.phish_data,
+            },
+        }
+
+        return config, path
 
     def terraform_configs(self):
+        path_dest = os.path.join(self.path_terraform, self.general_data["project_name"])
         configs = [
             {
                 "output_type": "headscale",
@@ -199,7 +241,7 @@ class ansibleVars:
                     "filename": "main.tf",
                 }
             )
-        return configs
+        return configs, path_dest
 
     def update_attributes(self):
         self.general_data = self.data["general"]
@@ -357,6 +399,12 @@ class ansibleVars:
             full_file_path = os.path.join(dir_path, config["filename"])
             self.write_output_to_file(output, full_file_path)
 
+    def process_template_configs(self, kind, template_name):
+        template_env_path = os.path.join(self.project_path, "templates", f"{kind}")
+        configs, path_prefix = getattr(self, f"{kind}_configs")()
+
+        self.process_configs(template_env_path, template_name, configs, path_prefix)
+
     def generate_ansible_vars(self):
         def print_output(template_env_path, template_name, configs):
             env = Environment(
@@ -375,10 +423,10 @@ class ansibleVars:
         # Update headscale users
         if "segment_c2" in self.data:
             self.c2_checks()
-        elif "segment_phish" in self.data:
-            self.headscale_defaults["setup"]["user_client"].extend(["phishsrv"])
-        elif "segment_siem" in self.data:
-            self.headscale_defaults["setup"]["user_client"].extend(["siem"])
+        if "segment_phish" in self.data:
+            self.headscale_defaults["setup"]["user_client"].append("phishsrv")
+        if "segment_siem" in self.data:
+            self.headscale_defaults["setup"]["user_client"].append(["siem"])
 
         # Validate user file input
         for section, default in self.defaults_mapping.items():
@@ -409,49 +457,22 @@ class ansibleVars:
         self.update_attributes()
 
         # Render the template
-        ansible_template_env_path = os.path.join(
-            self.project_path, "templates", "ansible_vars"
-        )
-        ansible_template_name = "all.j2"
-        ansible_path_prefix = os.path.join(self.path_ansible, "inventory", "group_vars")
-        ansible_configs = self.ansible_configs()
+        self.process_template_configs("ansible", "all.j2")
+        self.process_template_configs("terraform", "headscale.j2")
 
-        terraform_template_env_path = os.path.join(
-            self.project_path, "templates", "terraform_main"
-        )
-        terraform_template_name = "headscale.j2"
-        terraform_path_prefix = os.path.join(
-            self.path_terraform, self.general_data["project_name"]
-        )
-        terraform_configs = self.terraform_configs()
+        # Move extravars file
+        src_path = f"{self.path_ansible}/inventory/group_vars/extravars"
+        dst_dir = f"{self.path_ansible}/env"
+        dst_path = f"{dst_dir}/extravars"
 
-        self.process_configs(
-            ansible_template_env_path,
-            ansible_template_name,
-            ansible_configs,
-            ansible_path_prefix,
-        )
-        self.process_configs(
-            terraform_template_env_path,
-            terraform_template_name,
-            terraform_configs,
-            terraform_path_prefix,
-        )
+        self.ensure_dir(dst_dir)
+        if os.path.exists(src_path):
+            shutil.move(src_path, dst_path)
+        else:
+            print(f"Source file '{src_path}' does not exist!")
 
         # Print output
-        config_print = {
-            "data": {
-                "headscale_data": self.headscale_data,
-                "setup_data": self.setup_data,
-                "c2_data": self.c2_data,
-                "c2_framework": self.c2_framework,
-                "phish_data": self.phish_data,
-            },
-        }
-
-        output_template_name = "output.j2"
-        output = print_output(
-            terraform_template_env_path, output_template_name, config_print["data"]
-        )
+        data, path_template = self.print_config()
+        output = print_output(path_template, "output.j2", data["data"])
 
         return self.general_data["project_name"], output

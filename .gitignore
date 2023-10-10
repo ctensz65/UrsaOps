@@ -5,7 +5,8 @@
 .vscode
 .pem
 .p12
-
+.crt
+.key
 
 ### Ansible ###
 *.retry
@@ -184,10 +185,9 @@ terraform.rc
 .tfstate
 .tfstate.*
 
-# End of https://www.toptal.com/developers/gitignore/api/ansible,terraform,python
 ansible/inventory/*
-ansible/roles/headscale/files/pre_auth_keys.yml
-ansible/roles/headscale/files/routes.yml
+ansible/roles/headscale/files/
 terraform/engagement_2/*
 ansible/roles/c2_sliver/files/
-ansible/roles/gophish/files
+ansible/roles/gophish/files/*
+ansible/env

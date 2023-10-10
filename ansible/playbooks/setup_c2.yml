@@ -68,7 +68,7 @@
   hosts: "{{ c2_machine | default('c2srv') }}"
   become: yes
   tasks:
-    - name: Check if nodes.yml exists
+    - name: Check ip tailscale
       command:
         cmd: "tailscale ip --4"
       register: c2srv_ip
@@ -166,12 +166,11 @@
   become: yes
   vars:
     go_version_18: true
-  
-  pre_tasks:
+  tasks:
     - name: Check Golang Installation
       include_tasks: "{{ ansible_dir }}/roles/common/tasks/go.yml"
+      when: c2 == 'havoc'
 
-  tasks:
     - name: Clone Repo
       include_role:
         name: c2_havoc
@@ -188,12 +187,11 @@
 - name: Setup C2 [Sliver]
   hosts: "{{ c2_machine | default('c2srv') }}"
   become: yes
-  
-  pre_tasks:
+  tasks:
     - name: Check Golang Installation
       include_tasks: "{{ ansible_dir }}/roles/common/tasks/go.yml"
-  
-  tasks:
+      when: c2 == 'sliver'
+      
     - name: Setup C2 Server
       include_role:
         name: c2_sliver

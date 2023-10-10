@@ -26,3 +26,16 @@ segment_c2:
       version:
       user_agent:
       uri_path:
+segment_phish:
+  provider: aws
+  domain: cartensz-explorer.com
+  dns_provider: manual
+  server:
+    instance_name: phish_srv
+  redir:
+    instance_name: redirector_phish
+  evilginx:
+    redirect_url:
+    path_lures:
+    phishlets:
+

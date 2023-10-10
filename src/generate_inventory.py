@@ -4,7 +4,7 @@ import re
 
 def print_inventory(output_file):
     with open(output_file, "r") as infile:
-        print(f"\n==========================================")
+        print(f"==========================================")
         for line in infile:
             line = line.strip()
             if line and not line.startswith("["):
@@ -16,7 +16,7 @@ def print_inventory(output_file):
                     host = match.group(2)
                     user = match.group(3)
                     print(f"{hostname} = ssh {user}@{host}")
-        print(f"==========================================")
+        print(f"==========================================/n")
 
 
 def merge_inventories(project_name, base_dir, output_file):

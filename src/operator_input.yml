@@ -20,9 +20,22 @@ segment_c2:
     instance_name: redirector_https
   redir_dns:
     instance_name: redirector_dns
+    subdomain: backoffice.subengexpo.net
   framework:
     instance_name: c2_server
     sliver:
       version:
       user_agent:
       uri_path:
+segment_phish:
+  provider: aws
+  domain: cartensz-explorer.com
+  dns_provider: manual
+  server:
+    instance_name: 
+  redir:
+    instance_name:
+  evilginx:
+    redirect_url:
+    path_lures:
+    phishlets:

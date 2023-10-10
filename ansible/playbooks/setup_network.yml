@@ -36,7 +36,7 @@
   tags:
     - install_caddy
 
-- name: Setup headscale control plane
+- name: Setup Headscale Control Plane
   hosts: headscale
   become: yes
   roles:
@@ -79,7 +79,7 @@
   tags:
     - startcaddy
 
-- name: Connect tailscale client
+- name: Connect Tailscale Client
   hosts: all
   vars_files:
     - "/tmp/pre_auth_keys.yml"
@@ -91,7 +91,7 @@
   tags:
     - connectclient
 
-- name: Extract tailscale client ip from nodes
+- name: Extract Tailscale Client IP from Nodes
   hosts: headscale
   become: yes
   tasks:

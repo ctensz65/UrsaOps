@@ -1,6 +1,6 @@
 ---
 - name: Install Docker at Backend Server
-  hosts: phish_srv
+  hosts: "{{ phish_machine | default('phishsrv') }}"
   become: yes
   tasks:
     - include_role:
@@ -10,7 +10,7 @@
     - install_docker
 
 - name: Install Certbot at Redirector
-  hosts: redir_phish
+  hosts: "{{ redir_phish | default('redirector_phish') }}"
   become: yes
   tasks:
     - include_role:
@@ -19,8 +19,91 @@
   tags:
     - certbot
 
+- name: Setup DNS based on provider
+  hosts: "{{ redir_phish | default('redirector_phish') }}"
+  become: yes
+  vars:
+    domain: "{{ domain_phish }}"
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: dns_setup
+  tags:
+    - dns_setup
+
+- name: Extract Tailscale IP of Phishing Backend Server
+  hosts: "{{ phish_machine | default('phishsrv') }}"
+  become: yes
+  tasks:
+    - name: Check ip tailscale
+      command:
+        cmd: "tailscale ip --4"
+      register: phishsrv_ip
+
+    - name: Update group_vars with IP
+      delegate_to: localhost
+      become: no
+      lineinfile:
+        path: "{{ ansible_dir }}/inventory/group_vars/phish_segment.yml"
+        regexp: '^local_ip_phishsrv:'
+        line: "local_ip_phishsrv: \"{{ phishsrv_ip.stdout }}\""
+  tags:
+    - set_ip_c2
+
+- name: Extract Public IP of Phish Redirector
+  hosts: "{{ redir_phish | default('redirector_phish') }}"
+  gather_facts: true
+  tasks:
+    - name: Get public IP
+      become: no
+      uri:
+        url: http://ipv4.icanhazip.com
+        return_content: true
+      register: public_ip_result
+
+    - name: Update ip_redir_phish in phish_segment.yml
+      delegate_to: localhost
+      become: no
+      lineinfile:
+        path: "{{ ansible_dir }}/inventory/group_vars/phish_segment.yml"
+        regexp: '^ip_redir_phish:'
+        line: 'ip_redir_phish: "{{ public_ip_result.content | trim }}"'
+  tags:
+    - get_pubip
+
+- name: Add srv.local to /etc/hosts
+  hosts: "{{ redir_phish | default('redirector_phish') }}"
+  become: yes
+  vars:
+    dns_local: "srv.local"
+  tasks:
+    - name: Add srv.local to /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: "^.*{{ dns_local | regex_escape() }}.*$"
+        line: "{{ local_ip_phishsrv }} {{ dns_local }}"
+        state: present
+  tags:
+    - add_hosts
+
+- name: Setup Let's Encrypt Certificate
+  hosts: "{{ redir_phish | default('redirector_phish') }}"
+  become: yes
+  tasks:
+    - name: Check if certificate already exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ domain_phish }}/fullchain.pem"
+      register: cert_file
+
+    - name: Retrieve HTTPs certificate
+      include_role:
+        name: apache2
+        tasks_from: certificate 
+      when: not cert_file.stat.exists
+  tags: "setup_cert"
+
 - name: Install and Setup Apache2 for Redirector
-  hosts: redir_phish
+  hosts: "{{ redir_phish | default('redirector_phish') }}"
   become: yes
   tasks:
     - include_role:
@@ -30,7 +113,7 @@
     - setup_apache2
 
 - name: Setup CoreDNS to Create DNS Forwarder
-  hosts: redir_phish
+  hosts: "{{ redir_phish | default('redirector_phish') }}"
   become: yes
   tasks:
     - include_role:
@@ -40,7 +123,7 @@
     - setup_coredns
 
 - name: Setup GoPhish
-  hosts: phish_srv
+  hosts: "{{ phish_machine | default('phishsrv') }}"
   become: yes
   tasks:
     - include_role:
@@ -50,7 +133,7 @@
     - setup_gophish
 
 - name: Setup Evilginx
-  hosts: phish_srv
+  hosts: "{{ phish_machine | default('phishsrv') }}"
   become: yes
   tasks:
     - include_role:
@@ -60,7 +143,7 @@
     - setup_evilginx
 
 - name: Disable System Resolved Service
-  hosts: redir_phish
+  hosts: "{{ redir_phish | default('redirector_phish') }}"
   become: yes
   tasks:
     - include_role:
@@ -70,7 +153,7 @@
     - disable_resolved
 
 - name: Start CoreDNS
-  hosts: redir_phish
+  hosts: "{{ redir_phish | default('redirector_phish') }}"
   become: yes
   tasks:
     - include_role:

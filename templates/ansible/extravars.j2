@@ -1,0 +1,21 @@
+---
+headscale: "headscale"
+{% if c2_data is not none %}
+redirector:
+  https:  
+  {% for num in range(1, c2_data.redir_https.count + 1) %}
+    - {{ c2_data.redir_https.instance_name }}{% if c2_data.redir_https.count > 1 %}{{ num }}{% endif %}
+  
+  {% endfor -%}
+  {% if phish_data %}
+  phish: "{{ phish_data.redir.instance_name }}"
+  {% endif %}
+  {% if c2_data.get('redir_dns') %}
+  dns: "{{ c2_data.redir_dns.instance_name }}"
+  {% endif %}
+c2_machine: "{{ c2_data.framework.vm_hostname }}"
+{% endif %}
+{% if phish_data %}
+phish_machine: "{{ phish_data.server.vm_hostname }}"
+{% endif %}
+

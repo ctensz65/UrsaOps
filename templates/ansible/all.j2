@@ -4,36 +4,23 @@ ntp_timezone: "{{ general_data.ntp_timezone }}"
 project_name: {{ general_data.project_name }}
 ansible_dir: "{{ ansible_dir }}"
 
-## ========= Setup Headscale ========= ##
-url: "{% if setup_data.url %}https://controlplane.{{ setup_data.domain }}{% else %}https://controlplane.redteam.com{% endif %}"
-domain: controlplane.{{ setup_data.domain }}
-base_domain_headscale: {{ setup_data.base_domain_local }}
-acme_email: "noemail@{{ setup_data.domain }}"
-dns_provider: {{ setup_data.dns_provider }}
-listen_port: 27896
-exp_time_preauthkeys: {{ setup_data.exp_time_preauthkeys }}
-pre_auth_user:
-{% for client in setup_data.user_client %}
-  - {{ client }}
-{% endfor %}
-
 headscale: "headscale"
 {% if c2_data is not none %}
 redirector:
   https:  
   {% for num in range(1, c2_data.redir_https.count + 1) %}
-    - {{ c2_data.redir_https.vm_hostname }}{% if c2_data.redir_https.count > 1 %}{{ num }}{% endif %}
+    - {{ c2_data.redir_https.instance_name }}{% if c2_data.redir_https.count > 1 %}{{ num }}{% endif %}
   
   {% endfor -%}
-
+  {% if phish_data %}
+  phish: "{{ phish_data.redir.instance_name }}"
+  {% endif %}
   {% if c2_data.get('redir_dns') %}
-  dns: "{{ c2_data.redir_dns.vm_hostname }}"
+  dns: "{{ c2_data.redir_dns.instance_name }}"
   {% endif %}
 c2_machine: "{{ c2_data.framework.vm_hostname }}"
 {% endif %}
 {% if phish_data %}
-redirector:
-  phish: "{{ phish_data.redir.vm_hostname }}"
 phish_machine: "{{ phish_data.server.vm_hostname }}"
 {% endif %}
 
@@ -50,6 +37,10 @@ combinations:
     cloud: {{ phish_data.provider }}
 {% endif %}  
 
+{% elif output_type == 'extravars' %}
+{% include 'extravars.j2' %}
+{% elif output_type == 'network' %}
+{% include 'network.j2' %}
 {% elif output_type == 'c2_segment' %}
 {% include 'c2_segment.j2' %}
 {% elif output_type == 'segment_phish' %}

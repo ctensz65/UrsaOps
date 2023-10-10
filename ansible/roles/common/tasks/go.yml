@@ -31,25 +31,29 @@
   become: yes
   when: "'/lib/go1.13' in go_installed.stdout"
 
-- name: Download Golang Package
+- name: Download Golang Package [Version 1.18]
   get_url:
     url: https://golang.org/dl/go1.18.linux-amd64.tar.gz
     dest: /tmp/go1.18.linux-amd64.tar.gz
-  when: go_version_18 and (go_installed.rc != 0 or 'go1.18' not in go_installed.stdout)
+  when: 
+    - go_version_18 is defined
+    - go_installed.rc != 0 or 'go1.18' not in go_installed.stdout
 
-- name: Extract Golang Package
+- name: Extract Golang Package [Version 1.18]
   become: yes
   unarchive:
     src: /tmp/go1.18.linux-amd64.tar.gz
     dest: /usr/local
     remote_src: yes
-  when: go_version_18 and (go_installed.rc != 0 or 'go1.18' not in go_installed.stdout)
+  when: 
+    - go_version_18 is defined
+    - go_installed.rc != 0 or 'go1.18' not in go_installed.stdout
 
 - name: Ensure Go 1.18 is available in PATH
   lineinfile:
     path: /etc/profile
     line: "export PATH=$PATH:/usr/local/go/bin"
-  when: go_version_18
+  when: go_version_18 is defined
 
 - name: Ensure Go path is in root's .bashrc
   become: yes
@@ -59,7 +63,7 @@
     line: "export PATH=$PATH:/usr/local/go/bin"
     create: yes
     state: present
-  when: go_version_18
+  when: go_version_18 is defined
 
 - name: Install Go using snap if not installed manually
   command:

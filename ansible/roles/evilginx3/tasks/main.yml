@@ -9,13 +9,6 @@
     - "{{ path_dir_evilginx }}/config"
     - "{{ path_dir_evilginx }}/config/crt"
 
-- name: Transfer Dockerfile of Evilginx 3
-  copy:
-    src: "files/{{ item }}"
-    dest: "{{ path_dir_evilginx }}/{{ item }}"
-  loop:
-    - Dockerfile
-
 - name: Generate docker-compose Config from Template
   template:
     src: templates/docker_compose.j2
@@ -31,17 +24,34 @@
     src: "files/{{ phishlets_name }}.yaml"
     dest: "{{ path_dir_evilginx }}/phishlets/{{ phishlets_name }}.yaml"
 
+- name: Check if evilginx2 Docker image exists
+  command:
+    cmd: docker images -q evilginx2:latest
+  register: image_check
+  changed_when: false
+  failed_when: false
+
+- name: Transfer Dockerfile of Evilginx 3
+  copy:
+    src: "files/Dockerfile"
+    dest: "{{ path_dir_evilginx }}/Dockerfile"
+  when: image_check.stdout == ""
+  register: docker_file
+
 - name: Build evilginx2 Docker image
   command:
     cmd: docker build --no-cache --pull -t evilginx2:latest "{{ path_dir_evilginx }}"
   register: build_result
+  when: 
+    - image_check.stdout == ""
+    - docker_file.stat.changed
   failed_when:
     - "'Error' in build_result.stdout"
     - "'Error' in build_result.stderr"
 
 - name: Transfer and rename admin_fullchain.pem to ca.crt
   copy:
-    src: "roles/gophish/files/admin_fullchain.pem"
+    src: "{{ ansible_dir }}/roles/gophish/files/admin_fullchain.pem"
     dest: "{{ path_dir_evilginx }}/config/crt/ca.crt"
     owner: root
     group: root
@@ -49,32 +59,50 @@
 
 - name: Transfer admin_privkey.pem
   copy:
-    src: "roles/gophish/files/admin_privkey.pem"
+    src: "{{ ansible_dir }}/roles/gophish/files/admin_privkey.pem"
     dest: "{{ path_dir_evilginx }}/config/crt/admin_privkey.pem"
     owner: root
     group: root
     mode: "0600"
 
+- name: Fetch content of privkey.pem
+  slurp:
+    src: "{{ path_dir_evilginx }}/config/crt/admin_privkey.pem"
+  register: privkey_content
+
+- name: Check if privkey.pem is in RSA format
+  set_fact:
+    is_rsa: "{{ (privkey_content['content'] | b64decode).find('-----BEGIN RSA PRIVATE KEY-----') != -1 }}"
+
 - name: Convert PKCS Format
   command:
     cmd: openssl rsa -in admin_privkey.pem -out admin_privkey_traditional.pem
     chdir: "{{ path_dir_evilginx }}/config/crt"
+  when: is_rsa
+  register: conversion_result
 
-- name: Delete admin_privkey.pem
-  file:
-    path: "{{ path_dir_evilginx }}/config/crt/admin_privkey.pem"
-    state: absent
-
-- name: Rename Certificate Key File
+- name: Copy Certificate Key File
   copy:
     src: "{{ path_dir_evilginx }}/config/crt/admin_privkey_traditional.pem"
     dest: "{{ path_dir_evilginx }}/config/crt/ca.key"
     remote_src: yes
 
-- name: Remove old file
+- name: Check if ca.key exists and is valid
+  stat:
+    path: "{{ path_dir_evilginx }}/config/crt/ca.key"
+  register: ca_key
+
+- name: Delete old privkey.pem if successfully converted
   file:
-    path: "{{ path_dir_evilginx }}/config/crt/admin_privkey_traditional.pem"
+    path: "{{ path_dir_evilginx }}/config/crt/{{ item }}"
     state: absent
+  when: 
+    - conversion_result is changed
+    - ca_key.stat.exists
+    - ca_key.stat.size > 0
+  loop:
+    - admin_privkey_traditional.pem
+    - admin_privkey.pem
 
 - name: Run Gophish Docker Compose
   docker_compose:

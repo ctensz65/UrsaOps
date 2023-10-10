@@ -5,7 +5,7 @@
   failed_when: coredns_process.rc > 1
   changed_when: false
 
-- name: Kill caddy if it's running
+- name: Kill coredns if it's running
   command: kill -9 {{ coredns_process.stdout }}
   when:
     - coredns_process.rc == 0

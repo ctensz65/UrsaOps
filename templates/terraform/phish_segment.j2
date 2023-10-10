@@ -5,16 +5,15 @@ module "{{ suffix }}" {
   instance_name       = "{{ suffix }}"
   tag_name            = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}"
-  username_vm         = "{{ data.vm_username }}"
   
   ingress_rules       = {{ ingress_rules | tojson }}
 
-  egress_rules = {
+  egress_rules = [{
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-  }
+  }]
 }
 {% endmacro -%}
 {## ==================== Azure ==================== ##}
@@ -69,4 +68,16 @@ locals {
 resource "local_file" "ansible_inventory" {
   content  = local.inventory_content
   filename = "${path.root}/inventory.ini"
+}
+
+{% if phish_data.provider == "azure" -%}
+output "phish_instance_passwords" {
+  value = [for instance in local.phish_instances : instance.pass if lookup(instance, "pass", null) != null]
+  sensitive = true
+}
+{% endif -%}
+
+
+output "phish_instance_ssh_details" {
+  value = [for instance in local.phish_instances : "${instance.hostname} = ssh ${instance.user}@${instance.ip}"]
 }

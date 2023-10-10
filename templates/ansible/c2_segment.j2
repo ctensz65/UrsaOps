@@ -11,11 +11,13 @@ domain_c2_local: c2server.local
 dns_provider: {{ c2_data.dns_provider }}
 {% if c2_data.get('redir_dns') %}
 dns_subdomain: {{ c2_data.redir_dns.subdomain }}
-{% endif -%}
+redirdns: true
+{% endif %}
 ip_tailscale_c2: ""
 
 {% if c2_framework.get('cobaltstrike') -%}
 ## ========= CobaltStrike ========= ##
+c2: cobalt
 keystore_alias: c2server
 user_agent_cobalt: "{{ c2_framework.cobaltstrike.user_agent }}"
 c2_profile: "{{ c2_framework.cobaltstrike.profile }}"
@@ -23,6 +25,7 @@ archieve_file_path: "{{ c2_framework.cobaltstrike.archieve_file_path }}"
 
 {% elif c2_framework.get('sliver') %}
 ## ========= Sliver ========= ##
+c2: sliver
 name_sliver_operator: neo
 version_sliver: "v{{ c2_framework.sliver.version }}"
 user_agent_sliver: "{{ c2_framework.sliver.user_agent }}"
@@ -31,6 +34,7 @@ uri_path: "{{ c2_framework.sliver.uri_path }}"
 
 {% elif c2_framework.get('havoc') %}
 ## ========= Havoc ========= ##
+c2: havoc
 user_agent: "{{ c2_framework.havoc.user_agent }}"
 profile_havoc: "{{ c2_framework.havoc.profile }}"
 {% endif %}
