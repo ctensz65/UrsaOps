@@ -16,3 +16,9 @@ ${instance.hostname} ansible_host=${instance.ip} ansible_user=${instance.user}
 ${instance.hostname} ansible_host=${instance.ip} ansible_user=${instance.user}
 %{ endfor ~}
 %{ endif ~}
+%{ if length(siem_instances) > 0 ~}
+[siem_segment]
+%{ for instance in siem_instances ~}
+${instance.hostname} ansible_host=${instance.ip} ansible_user=${instance.user}
+%{ endfor ~}
+%{ endif ~}

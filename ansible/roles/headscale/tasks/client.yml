@@ -29,7 +29,9 @@
 - name: Set pre_auth_key for siem
   set_fact:
     pre_auth_key: "{{ siem }}"
-  when: inventory_hostname == 'siem'
+  when:
+    - siem_machine is defined 
+    - inventory_hostname in siem_machine or inventory_hostname == siem_machine
 
 - name: Set pre_auth_key for jumphost
   set_fact:
@@ -46,6 +48,7 @@
   register: tailscale_status
   ignore_errors: true
   changed_when: false
+  when: inventory_hostname != 'headscale'
 
 - name: Connect the client to headscale controlplane
   command:
@@ -53,3 +56,4 @@
   when: 
     - pre_auth_key is defined
     - "'NeedsLogin' in tailscale_status.stderr"
+    - inventory_hostname != 'headscale'

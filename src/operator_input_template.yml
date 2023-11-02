@@ -7,7 +7,7 @@ headscale:
   provider: azure
   setup:
     dns_provider: manual
-    domain: subengexpo.net
+    domain: headscaledomain.ltd
     base_domain_local: redteam.local
     jump_host: true
     exp_time_preauthkeys: 55m
@@ -16,7 +16,7 @@ segment_c2:
   dns_provider: manual
   redir_https:
     count: 1
-    domain: subengexpo.net
+    domain: c2domain.ltd
     instance_name: redirector_https
   redir_dns:
     instance_name: redirector_dns
@@ -28,7 +28,7 @@ segment_c2:
       uri_path:
 segment_phish:
   provider: aws
-  domain: cartensz-explorer.com
+  domain: phishdomain.ltd
   dns_provider: manual
   server:
     instance_name: phish_srv
@@ -38,4 +38,10 @@ segment_phish:
     redirect_url:
     path_lures:
     phishlets:
+segment_siem:
+  provider: aws
+  dns_provider: manual
+  instance_name: siem_redelk
+  vm_size: t2.large
+
 

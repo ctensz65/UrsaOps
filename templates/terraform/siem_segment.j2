@@ -5,6 +5,7 @@ module "{{ suffix }}" {
   instance_name       = "{{ suffix }}"
   tag_name            = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}"
+  vm_size             = "{{ data.vm_size }}"
   
   ingress_rules       = {{ ingress_rules | tojson }}
 
@@ -24,46 +25,35 @@ module "{{ suffix }}" {
   instance_name       = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}"
   username_vm         = "{{ data.vm_username }}"
-  vm_size             = "Standard_B1s"
+  vm_size             = "{{ data.vm_size }}"
   tags_segment        = "{{ suffix }}"
   inbound_rules       = {{ inbound | tojson }}
 }
 {% endmacro -%}
-
 {## ==================== AWS ==================== ##}
-{%- if phish_data.provider == "aws" -%}
-{% set redir_inbound = [
+{%- if siem_data.provider == "aws" -%}
+{% set rule_inbound = [
     { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] },
     { "from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] },
-    { "from_port": 8080, "to_port": 8080, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] }
   ]
 %}
-{{ aws_instance_module(phish_data.redir.instance_name, phish_data.redir, redir_inbound) }}
-{% set srv_inbound = [
-    { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"] }
-  ]
-%}
-{{ aws_instance_module(phish_data.server.instance_name, phish_data.server, srv_inbound) }}
+{{ aws_instance_module(siem_data.instance_name, siem_data, rule_inbound) }}
 {## ==================== Azure ==================== ##}
-{%- elif phish_data.provider == "azure" -%}
-{% set redir_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "443", "protocol": "Tcp" }, { "port": "8080", "protocol": "Tcp" }] %}
-{{ azure_instance_module(phish_data.redir.instance_name, phish_data.redir, redir_inbound) }}
-{% set srv_inbound = [{ "port": "22", "protocol": "Tcp" }] %}
-{{ azure_instance_module(phish_data.server.instance_name, phish_data.server, srv_inbound) }}
+{%- elif siem_data.provider == "azure" -%}
+{% set rule_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "443", "protocol": "Tcp" }] %}
+{{ azure_instance_module(siem_data.instance_name, siem_data, rule_inbound) }}
 {% endif -%}
 
-{## ==== Inventory ==== ##} 
 locals {
-  phish_instances = [
-    module.{{ phish_data.redir.instance_name }}.instance_details,
-    module.{{ phish_data.server.instance_name }}.instance_details
+  siem_instances = [
+    module.{{ siem_data.instance_name }}.instance_details
   ]
 
   inventory_content = templatefile("{{ TEMPLATE_PATH }}", {
-    phish_instances = local.phish_instances,
+    siem_instances = local.siem_instances,
     headscale_instances = [],
     c2_instances = [],
-    siem_instances = []
+    phish_instances = []
   })
 }
 
@@ -72,14 +62,13 @@ resource "local_file" "ansible_inventory" {
   filename = "${path.root}/inventory.ini"
 }
 
-{% if phish_data.provider == "azure" -%}
-output "phish_instance_passwords" {
-  value = [for instance in local.phish_instances : instance.pass if lookup(instance, "pass", null) != null]
+{% if siem_data.provider == "azure" %}
+output "siem_instance_passwords" {
+  value = [for instance in local.siem_instances : instance.pass if lookup(instance, "pass", null) != null]
   sensitive = true
 }
-{% endif -%}
+{% endif %}
 
-
-output "phish_instance_ssh_details" {
-  value = [for instance in local.phish_instances : "${instance.hostname} = ssh ${instance.user}@${instance.ip}"]
+output "siem_instance_ssh_details" {
+  value = [for instance in local.siem_instances : "${instance.hostname} = ssh ${instance.user}@${instance.ip}"]
 }

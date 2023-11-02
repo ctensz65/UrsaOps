@@ -36,13 +36,50 @@
   tags:
     - count_redir
 
-- name: Setup DNS based on provider
+- name: Domain mapping
+  hosts: localhost
+  gather_facts: no
+  tasks:
+  
+    - block:
+        - name: Prepare domain map for a single redirector
+          set_fact:
+            machine_domain_map:
+              redirector_https: "{{ domain[0] }}"
+          when: (groups['temp_redir_https_group'] | default([])) | length == 1
+
+        - name: Prepare domain map for multiple redirectors
+          set_fact:
+            machine_domain_map:
+              redirector_https_1: "{{ domain[0] }}"
+              redirector_https_2: "{{ domain[1] }}"
+          when: (groups['group_redir_https'] | default([])) | length == 2
+      when: dns_provider != 'manual' 
+
+    - name: Add DNS machine to domain map
+      set_fact:
+        machine_domain_map_dns:
+          redir_dns: dns_subdomain.split('.')[1] + '.' + dns_subdomain.split('.')[2] })
+      when: redirdns is defined
+
+- name: Setup DNS based on provider [Redirector HTTPs]
   hosts: group_redir_https:temp_redir_https_group
   become: yes
   tasks:
     - include_role:
         name: common
         tasks_from: dns_setup
+  tags:
+    - dns_setup
+
+- name: Setup DNS based on provider [Redirector DNS]
+  hosts: "{{ redir_dns | default('redirector_dns') }}"
+  become: yes
+  tasks:
+    - include_role:
+        name: common
+        tasks_from: dns_setup
+      when: redirdns is defined
   tags:
     - dns_setup
 

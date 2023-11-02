@@ -94,11 +94,21 @@ class ansibleVars:
             },
         }
 
+        self.siem_defaults = {
+            "provider": "aws",
+            "vm_size": "",
+            "dns_provider": "manual",
+            "instance_name": "redelk",
+            "vm_hostname": "redelk",
+            "vm_username": "node",
+        }
+
         self.defaults_mapping = {
             "general": self.general_defaults,
             "headscale": self.headscale_defaults,
             "segment_c2": self.c2_defaults,
             "segment_phish": self.phish_defaults,
+            "segment_siem": self.siem_defaults,
         }
 
         # Map the region
@@ -123,6 +133,7 @@ class ansibleVars:
         self.c2_data = None
         self.c2_framework = None
         self.phish_data = None
+        self.siem_data = None
 
     def ansible_configs(self):
         path_dest = os.path.join(self.path_ansible, "inventory", "group_vars")
@@ -136,6 +147,7 @@ class ansibleVars:
                     "c2_data": self.c2_data,
                     "phish_data": self.phish_data,
                     "ansible_dir": self.path_ansible,
+                    "siem_data": self.siem_data,
                 },
                 "filename": "all.yml",
             },
@@ -160,6 +172,7 @@ class ansibleVars:
                     "c2_data": self.c2_data,
                     "phish_data": self.phish_data,
                     "ansible_dir": self.path_ansible,
+                    "siem_data": self.siem_data,
                 },
                 "filename": "extravars",
             },
@@ -202,6 +215,7 @@ class ansibleVars:
                 "c2_data": self.c2_data,
                 "c2_framework": self.c2_framework,
                 "phish_data": self.phish_data,
+                "siem_data": self.siem_data,
             },
         }
 
@@ -240,6 +254,15 @@ class ansibleVars:
                     "filename": "main.tf",
                 }
             )
+        if self.siem_data:
+            configs.append(
+                {
+                    "output_type": "siem",
+                    "data": {"siem_data": self.siem_data},
+                    "dir": os.path.join("segment4_siem", self.siem_data["provider"]),
+                    "filename": "main.tf",
+                }
+            )
         return configs, path_dest
 
     def update_attributes(self):
@@ -250,6 +273,7 @@ class ansibleVars:
         self.c2_data = self.data.get("segment_c2")
         self.c2_framework = self.c2_data["framework"] if self.c2_data else None
         self.phish_data = self.data.get("segment_phish")
+        self.siem_data = self.data.get("segment_siem")
 
     def load_yaml(self):
         with open(self.filepath, "r") as stream:
@@ -425,7 +449,15 @@ class ansibleVars:
         if "segment_phish" in self.data:
             self.headscale_defaults["setup"]["user_client"].append("phishsrv")
         if "segment_siem" in self.data:
-            self.headscale_defaults["setup"]["user_client"].append(["siem"])
+            self.headscale_defaults["setup"]["user_client"].append("siem")
+            provider_value = self.data["segment_siem"]["provider"]
+
+            if provider_value == "aws":
+                self.siem_defaults["vm_size"] = "t3.large"
+            elif provider_value == "azure":
+                self.siem_defaults["vm_size"] = "Standard_D2s_v3"
+            elif provider_value == "digitalocean":
+                self.siem_defaults["vm_size"] = "Standard Droplet"
 
         # Validate user file input
         for section, default in self.defaults_mapping.items():

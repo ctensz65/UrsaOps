@@ -18,14 +18,76 @@
     - dns_provider == 'manual'
     - ansible_host not in dns_result.stdout_lines
 
-# - name: Setup DNS for Route53
-#   # Assuming you've tasks/modules specific for Route53 setup
-#   route53_module:
-#     ...
-#   when: dns_provider == 'route53'
+- name: Cloudflare - Set A Records
+  community.general.cloudflare_dns:
+    account_email: "{{ CF_EMAIL }}"
+    account_api_token: "{{ CF_TOKEN }}"
+    record: "@"
+    zone: "{{ item.value }}"
+    type: A
+    ttl: 300
+    value: "{{ hostvars[item.key].ansible_host }}"
+    proxied: no
+  with_dict: "{{ machine_domain_map }}"
+  when:
+    - dns_provider == 'cloudflare'
+    - ansible_host not in dns_result.stdout_lines
+    - item.key not in inventory_hostname
+    - item.key != 'redir_dns'
 
-# - name: Setup DNS for Cloudflare
-#   # Assuming you've tasks/modules specific for Cloudflare setup
-#   cloudflare_module:
-#     ...
-#   when: dns_provider == 'cloudflare'
+- name: Cloudflare - Set A record for DNS (special handling for redir_dns)
+  cloudflare_dns:
+    account_email: "{{ CF_EMAIL }}"
+    account_api_token: "{{ CF_TOKEN }}"
+    record: "dns"
+    zone: "{{ item.value.split('.')[-2] + '.' + item.value.split('.')[-1] }}"
+    value: "{{ hostvars[item.key].ansible_host }}"
+    type: "A"
+    proxied: no
+    ttl: 300
+  when: 
+    - item.key == 'redir_dns'
+    - dns_provider == 'cloudflare'
+    - ansible_host not in dns_result.stdout_lines
+  loop: "{{ machine_domain_map.items() }}"
+
+- name: Set NS record for DNS (special handling for redir_dns)
+  cloudflare_dns:
+    account_email: "{{ CF_EMAIL }}"
+    account_api_token: "{{ CF_TOKEN }}"
+    record: "{{ item.value.split('.')[0] }}"
+    value: "dns.{{ item.value.split('.')[-2] + '.' + item.value.split('.')[-1] }}"
+    type: "NS"
+  when: 
+    - item.key == 'redir_dns'
+    - dns_provider == 'cloudflare'
+    - ansible_host not in dns_result.stdout_lines
+  loop: "{{ machine_domain_map.items() }}"
+
+- name: Cloudflare - Set CNAME record
+  community.general.cloudflare_dns:
+    account_email: "{{ CF_EMAIL }}"
+    account_api_token: "{{ CF_TOKEN }}"
+    zone: "{{ zone_cname }}"
+    record: "{{ record_cname }}"
+    type: CNAME
+    value: "{{ value_cname }}"
+    ttl: 1
+    proxied: no
+  when:
+    - dns_provider == 'cloudflare'
+    - ansible_host not in dns_result.stdout_lines
+
+- name: Cloudflare - Set TXT record
+  community.general.cloudflare_dns:
+    account_email: "{{ CF_EMAIL }}"
+    account_api_token: "{{ CF_TOKEN }}"
+    zone: "{{ zone_txt }}"
+    record: "@"
+    type: TXT
+    value: "{{ value_txt }}"
+    ttl: 1
+    proxied: no
+  when:
+    - dns_provider == 'cloudflare'
+    - ansible_host not in dns_result.stdout_lines

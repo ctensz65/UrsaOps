@@ -11,9 +11,23 @@ services:
       - 9090:9090
     command: headscale serve
     restart: unless-stopped
-  headscale-ui:
-    image: ghcr.io/gurucomputing/headscale-ui:latest
-    restart: unless-stopped
-    container_name: headscale-ui
+  
+  headscale-webui:
+    image: ghcr.io/ifargle/headscale-webui:latest
+    container_name: headscale-webui
+    environment:
+      - TZ=Asia/Bangkok
+      - COLOR=red
+      - HS_SERVER={{ url }}
+      - DOMAIN_NAME={{ url }}
+      - SCRIPT_NAME=/admin
+      - KEY=""
+      - AUTH_TYPE=basic
+      - LOG_LEVEL=info
+      - BASIC_AUTH_USER=user
+      - BASIC_AUTH_PASS=password123@!
     ports:
-      - 9443:443
+      - 5000:5000
+    volumes:
+      - ./volume:/data                         
+      - ./config/:/etc/headscale/:ro

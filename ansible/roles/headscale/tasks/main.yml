@@ -6,8 +6,17 @@
 
 - name: Create headscale config directory
   file:
-    path: /opt/headscale/config
+    path: /opt/headscale/{{ item }}
     state: directory
+  loop:
+    - config
+    - volume
+
+- name: Make volume folder readable
+  file:
+    path: /opt/headscale/volume
+    owner: 1000
+    group: 1000
 
 - name: Create db.sqlite file
   file:
@@ -25,6 +34,18 @@
   template:
     src: templates/headscale_docker_compose.j2
     dest: /opt/headscale/docker-compose.yaml
+
+- name: Generate key for headscale-ui encryption
+  command:
+    cmd: "openssl rand -base64 32"
+  register: openssl_output
+  changed_when: False
+
+- name: Update docker-compose.yml with generated key
+  replace:
+    path: /opt/headscale/docker-compose.yaml
+    regexp: '(KEY=").*(")'
+    replace: '\1{{ openssl_output.stdout }}\2'
 
 - name: Run docker-compose up
   command:

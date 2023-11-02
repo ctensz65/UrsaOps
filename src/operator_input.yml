@@ -39,3 +39,6 @@ segment_phish:
     redirect_url:
     path_lures:
     phishlets:
+segment_siem:
+  provider: aws
+  instance_name: siem_redelk

@@ -94,7 +94,8 @@ locals {
   inventory_content = templatefile("{{ TEMPLATE_PATH }}", {
     c2_instances = local.c2_instances
     headscale_instances = [],
-    phish_instances = []
+    phish_instances = [],
+    siem_instances = []
   })
 }
 

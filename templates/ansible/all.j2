@@ -3,6 +3,7 @@
 ntp_timezone: "{{ general_data.ntp_timezone }}"
 project_name: {{ general_data.project_name }}
 ansible_dir: "{{ ansible_dir }}"
+url: "{% if setup_data.url %}https://controlplane.{{ setup_data.domain }}{% else %}https://controlplane.redteam.com{% endif %}"
 
 headscale: "headscale"
 {% if c2_data is not none %}
@@ -23,6 +24,9 @@ c2_machine: "{{ c2_data.framework.vm_hostname }}"
 {% if phish_data %}
 phish_machine: "{{ phish_data.server.vm_hostname }}"
 {% endif %}
+{% if siem_data %}
+siem_machine: "{{ siem_data.vm_hostname }}"
+{% endif %}
 
 ## ========= Terraform ========= ##
 combinations:
@@ -35,7 +39,11 @@ combinations:
 {% if phish_data is not none %}
   - segment: phish
     cloud: {{ phish_data.provider }}
-{% endif %}  
+{% endif %}
+{% if siem_data %}
+  - segment: siem
+    cloud: {{ siem_data.provider }}
+{% endif %}
 
 {% elif output_type == 'extravars' %}
 {% include 'extravars.j2' %}

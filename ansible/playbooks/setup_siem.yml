@@ -1,0 +1,99 @@
+---
+- name: Check Tailscale Connectivity
+  hosts: "{{ siem_machine | default('redelk') }}"
+  become: yes
+  tasks:
+    - name: Check Tailscale Connectivity
+      command:
+        cmd: "tailscale ip --4"
+      register: tailscale_status
+
+    - name: Show message if tailscale not yet connect
+      fail:
+        msg: "Check your tailscale connectivity"
+      when: "'NeedsLogin' in tailscale_status.stderr"
+  tags:
+    - check_tailscale
+
+- name: Pre Requisition
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Install roles from Ansible Galaxy
+      command: 
+        cmd: ansible-galaxy install {{ item }}
+        chdir: "{{ ansible_dir }}"
+      with_items:
+        - "fastlorenzo.redelk_server"
+        - "fastlorenzo.redelk_client"
+    
+    - name: Install collections from Ansible Galaxy
+      command: 
+        cmd: ansible-galaxy collection install {{ item }}
+        chdir: "{{ ansible_dir }}"
+      with_items:
+        - "community.crypto"
+        - "community.general"
+  tags: 
+    - pre_req
+
+# - name: Apply redelk_server role to RedELK server(s)
+#   hosts: "{{ siem_machine | default('redelk') }}"
+#   gather_facts: true
+#   roles:
+#     - redelk_server
+#   tags:
+#     - setup_redelk
+
+# - name: Apply redelk_client role to teamservers
+#   hosts: "{{ c2_machine | default('c2srv') }}"
+#   gather_facts: true
+#   roles:
+#     - redelk_client
+#   tags:
+#     - teamservers
+
+# - name: Check if group_redir_https exists and has members
+#   hosts: localhost
+#   gather_facts: no
+#   tasks:
+#     - name: Check if group_redir_https has members
+#       set_fact:
+#         use_redirector_var: true
+#       when: 
+#         - "'group_redir_https' not in groups"
+#         - "groups['group_redir_https'] is not defined or groups['group_redir_https'] | length == 0"
+
+#     - name: Add host from redirector.https variable if group_redir_https is empty
+#       add_host:
+#         name: "{{ item }}"
+#         groups: temp_redir_https_group
+#       loop: "{{ redirector.https }}"
+#       when: use_redirector_var | default(false)
+    
+#   tags:
+#     - count_redir
+
+# - name: Validate total redirector HTTPs
+#   hosts: group_redir_https:temp_redir_https_group
+#   tasks:
+#     - name: Check number of hosts in temp_redir_https_group
+#       debug:
+#         msg: "Only One Redirector Defined in temp_redir_https_group!"
+#       when: (groups['temp_redir_https_group'] | default([])) | length == 1
+
+#     - name: Check number of hosts in group_redir_https
+#       debug:
+#         msg: "Found Two Redirectors in group_redir_https!"
+#       when: (groups['group_redir_https'] | default([])) | length == 2
+      
+#   tags:
+#     - count_redir
+
+# - name: Apply redelk_client role to redirectors
+#   hosts: group_redir_https:temp_redir_https_group
+#   gather_facts: true
+#   roles:
+#     - redelk_client
+#   tags:
+#     - redirectors

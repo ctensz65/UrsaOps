@@ -6,12 +6,13 @@
   # Add security headers
   header {
       Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-      Content-Security-Policy "script-src 'self'; object-src 'self'"
       X-XSS-Protection "1; mode=block"
-      X-Content-Type-Options "nosniff"
       X-Frame-Options "SAMEORIGIN"
       Referrer-Policy "strict-origin-when-cross-origin"
   }
+
+  # Reverse proxy
+  reverse_proxy /admin* http://0.0.0.0:5000
 
   # Reverse proxy
   reverse_proxy 0.0.0.0:{{ listen_port }}

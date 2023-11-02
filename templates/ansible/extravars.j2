@@ -18,4 +18,7 @@ c2_machine: "{{ c2_data.framework.vm_hostname }}"
 {% if phish_data %}
 phish_machine: "{{ phish_data.server.vm_hostname }}"
 {% endif %}
+{% if siem_data %}
+siem_machine: "{{ siem_data.vm_hostname }}"
+{% endif %}
 

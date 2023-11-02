@@ -94,7 +94,8 @@ locals {
   inventory_content = templatefile("{{ TEMPLATE_PATH }}", {
     headscale_instances = local.headscale_instances,
     c2_instances = [],
-    phish_instances = []
+    phish_instances = [],
+    siem_instances = []
   })
 }
 
@@ -123,4 +124,6 @@ provider "azurerm" {
 {% include 'c2_segment.j2' %}
 {%- elif output_type == 'phish' -%}
 {% include 'phish_segment.j2' %}
+{%- elif output_type == 'siem' -%}
+{% include 'siem_segment.j2' %}
 {% endif %}

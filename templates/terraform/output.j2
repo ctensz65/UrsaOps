@@ -1,36 +1,68 @@
-==========================================
-Segment: Headscale
-    - Provider: {{ headscale_data.provider }}
-    - Domain: {{ setup_data.domain }}
+{% macro segment_template(segment_name, data) %}
+{{"="*40}}
+Segment: {{ segment_name }}
+{{"-"*40}}
+    Provider: {{ data.provider }}
+    Domain: {{ data.domain }}
+    {% if data.framework %}
+    Framework: {{ data.framework }}
+    {% endif %}
+    {% if data.total_redirector_https %}
+    Total Redirector HTTPs: {{ data.total_redirector_https }}
+    {% endif %}
+    {% if data.redirector_dns %}
+    Redirector DNS: Yes
+    {% endif %}
+    {% if data.vm_size %}
+    VM Size: {{ data.vm_size }}
+    {% endif %}
+{% endmacro %}
 
-{% if c2_data is not none %}
-==========================================
-Segment: c2
-    - Provider: {{ c2_data.provider }}
-{% if c2_framework.get('cobaltstrike') -%}
-    - Framework: Cobalt Strike
+{% set headscale_segment = {
+    'provider': headscale_data.provider,
+    'domain': setup_data.domain,
+} %}
+{{ segment_template("Headscale", headscale_segment) }}
+
+{% if c2_data %}
+{% if c2_framework.get('cobaltstrike') %}
+    {% set framework_c2 = 'Cobalt Strike' %}
 {% elif c2_framework.get('sliver') %}
-    - Framework: Sliver
+    {% set framework_c2 = 'Sliver' %}
 {% elif c2_framework.get('havoc') %}
-    - Framework: Havoc
+    {% set framework_c2 = 'Havoc' %}
 {% endif %}
-    - Total Redirector HTTPs: {{  c2_data.redir_https.count }}
-{% if c2_data.get('redir_dns') %}
-    - Redirector DNS
-{% endif %}
+{% set c2_segment = {
+    'provider': c2_data.provider,
+    'domain': c2_data.redir_https.domain,
+    'framework': framework_c2,
+    'total_redirector_https': c2_data.redir_https.count,
+    'redirector_dns': c2_data.get('redir_dns')
+} %}
+{{ segment_template("C2", c2_segment) }}
 {% endif %}
 
 {% if phish_data %}
-==========================================
-Segment: Phishing
-    - Provider: {{ phish_data.provider }}
-    - Domain: {{ phish_data.domain }}
+{% set phish_segment = {
+    'provider': phish_data.provider,
+    'domain': phish_data.domain,
+} %}
+{{ segment_template("Phishing", phish_segment) }}
 {% endif %}
 
-==========================================
-Summary:
-   - The above configuration and resources have been generated for terraform and ansible.
-   - Ensure you have reviewed and validated all details.
+{% if siem_data %}
+{% set siem_segment = {
+    'provider': siem_data.provider,
+    'vm_size': siem_data.vm_size,
+} %}
+{{ segment_template("SIEM", siem_segment) }}
+{% endif %}
 
-Warning:
-   - Deployment will create resources that may incur costs. Ensure you are aware of any associated charges.
+{{"="*95}}
+                                       Summary:
+    - The configuration and resources above are ready for terraform and ansible deployment.
+    - Please review and validate all details before proceeding.
+
+                                       Warning:
+    - Deployment might result in costs. Be aware of any charges associated with the resources.
+{{"="*95}}

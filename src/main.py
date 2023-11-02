@@ -5,6 +5,7 @@ from python_terraform import *
 import yaml
 import argparse
 import logging
+from libterraform import TerraformCommand
 
 from generate_vars import ansibleVars
 from generate_inventory import *
@@ -87,7 +88,7 @@ class wrapper:
             print(f"\nFailed to initialize Terraform in {tf_directory}\n")
             print(stderr)
 
-    def tform_plan(self, tf, tf_directory, plan_out):
+    def tform_plan(self, tf, tf_directory, plan_out=None):
         print(
             f"{Color.YELLOW}====================== Planning Terraform in {tf_directory}{Color.END}\n"
         )
@@ -98,10 +99,6 @@ class wrapper:
 
         print("Generated Terraform Plan:")
         print(stdout)
-
-        user_input = input("Do you wish to apply this plan? (y/n): ")
-        if user_input.lower() != "y":
-            raise ValueError("Terraform apply aborted by user.")
 
     def tform_apply(self, tf, tf_directory):
         print(
@@ -116,73 +113,88 @@ class wrapper:
             print(f"\nFailed to apply Terraform in {tf_directory}\n")
             print(stderr)
 
-    def tform_destroy(self, tf, tf_directory):
+    # def tform_destroy(self, tf, tf_directory):
+    #     print(
+    #         f"{Color.YELLOW}====================== Destroying Instances in {tf_directory}{Color.END}\n"
+    #     )
+    #     return_code, stdout, stderr = tf.destroy(no_color=IsFlagged, force=None)
+
+    #     if return_code == 0:
+    #         print(f"Succeeded to destroy Terraform infrastructure in {tf_directory}\n")
+    #     else:
+    #         print(f"\nFailed to destroy Terraform infrastructure in {tf_directory}\n")
+    #         print(stderr)
+
+    def tform_destroy2(self, tf_directory):
         print(
             f"{Color.YELLOW}====================== Destroying Instances in {tf_directory}{Color.END}\n"
         )
-        return_code, stdout, stderr = tf.destroy(force=True)
+        cmd = ["terraform", "destroy", "-auto-approve"]
+        result = subprocess.run(cmd, cwd=tf_directory, capture_output=True, text=True)
 
-        if return_code == 0:
+        if result.returncode == 0:
             print(f"Succeeded to destroy Terraform infrastructure in {tf_directory}\n")
         else:
             print(f"\nFailed to destroy Terraform infrastructure in {tf_directory}\n")
-            print(stderr)
+            print(result.stderr)
 
-    def process(self, action):
+    def choose_segment(self, action):
         main_tf_files, segments = self.search_maintf()
 
-        def choose_deployment_segment():
-            input_message = "\nWhich segment would you like to deploy with terraform?\n"
-            for index, item in enumerate(segments):
-                input_message += f"{index + 1}) {item}\n"
+        input_message = f"\nWhich segment would you like to {action} with terraform?\n"
+        for index, item in enumerate(segments):
+            input_message += f"{index + 1}) {item}\n"
 
-            input_message += f"{len(segments) + 1}) all\n"
-            input_message += f"{len(segments) + 2}) exclude certain segments\n"
-            input_message += "\nYour choice: "
+        input_message += f"{len(segments) + 1}) all\n"
+        input_message += f"{len(segments) + 2}) exclude certain segments\n"
+        input_message += "\nYour choice: "
 
-            while True:
-                user_input = input(input_message)
+        while True:
+            user_input = input(input_message)
 
-                # Check if input is valid
-                if user_input.isdigit() and 1 <= int(user_input) <= len(segments) + 2:
-                    user_choice = int(user_input)
+            # Check if input is valid
+            if user_input.isdigit() and 1 <= int(user_input) <= len(segments) + 2:
+                user_choice = int(user_input)
 
-                    # User selected a specific segment.
-                    if 1 <= user_choice <= len(segments):
-                        to_be_deploy = [segments[user_choice - 1]]
-                        break
+                # User selected a specific segment.
+                if 1 <= user_choice <= len(segments):
+                    to_be_process = [segments[user_choice - 1]]
+                    break
 
-                    # User selected all segments.
-                    elif user_choice == len(segments) + 1:
-                        to_be_deploy = segments
-                        break
+                # User selected all segments.
+                elif user_choice == len(segments) + 1:
+                    to_be_process = segments
+                    break
 
-                    # User chose to exclude certain segments.
-                    elif user_choice == len(segments) + 2:
-                        excluded_segments = input(
-                            "\nWhich segments would you like to exclude? (comma-separated): "
-                        ).split(",")
-                        to_be_deploy = [
-                            segment
-                            for segment in segments
-                            if segment not in excluded_segments
-                        ]
-                        break
+                # User chose to exclude certain segments.
+                elif user_choice == len(segments) + 2:
+                    excluded_segments = input(
+                        "\nWhich segments would you like to exclude? (comma-separated): "
+                    ).split(",")
+                    to_be_process = [
+                        segment
+                        for segment in segments
+                        if segment not in excluded_segments
+                    ]
+                    break
 
-                print("Invalid choice. Please try again.")
-            print("Deploying on segment(s): " + ", ".join(to_be_deploy))
-            return to_be_deploy
+            print("Invalid choice. Please try again.")
 
-        to_be_deploy = choose_deployment_segment()
         main_tf_files = [
             path
             for path in main_tf_files
-            for segment in to_be_deploy
+            for segment in to_be_process
             if segment in path
         ]
 
+        print(f"{action}ing on segment(s): " + ", ".join(to_be_process))
+        return main_tf_files, to_be_process
+
+    def process(self, action, check_segment=True, main_tf_files=None):
+        if check_segment:
+            main_tf_files, _ = self.choose_segment(action)
+
         for tf_directory in main_tf_files:
-            # plan_out_file = os.path.join(tf_directory, "terraform.tfplan")
             tf = Terraform(working_dir=tf_directory)
 
             self.tform_init(tf, tf_directory)
@@ -191,7 +203,9 @@ class wrapper:
                 self.tform_apply(tf, tf_directory)
 
             elif action == "destroy":
-                self.tform_destroy(tf, tf_directory)
+                self.tform_plan(tf, tf_directory)
+                # self.tform_destroy(tf, tf_directory)
+                self.tform_destroy2(tf_directory)
 
         if action == "deploy":
             os.makedirs(os.path.dirname(self.OUTPUT_INVENTORY), exist_ok=True)
@@ -224,6 +238,20 @@ class wrapper:
             print(r.stats)
         else:
             print(f"No playbook mapped for segment: {segment}")
+
+
+def display_header():
+    tool_name = "UrsaOps"
+    version = "v1.0.0"
+    author = "[ctensz65]"
+    tagline = "Automating red team infrastructure deployment using Terraform & Ansible"
+
+    header = f"""
+    {tool_name} - {tagline}
+    Version: {version}
+    Author: {author}
+    """
+    print(header)
 
 
 def is_yaml_file(filename):
@@ -267,6 +295,8 @@ def main():
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
 
+    display_header()
+
     if args.command == "deploy":
         input_file = sys.argv[2].strip().lower()
 
@@ -278,11 +308,13 @@ def main():
         ansible_vars_instance = ansibleVars(input_file, ursaops_root)
         project_name, output = ansible_vars_instance.generate_ansible_vars()
 
-        print("\nProject Name:", project_name, "\n")
+        print("=" * 40, "\nProject Name:", project_name)
         print(output)
 
         confirmation = (
-            input("\nDoes everything look okay? Type 'yes' to continue deploying: ")
+            input(
+                "\nDoes everything look acceptable? Type 'yes' to continue deploying: "
+            )
             .strip()
             .lower()
         )
@@ -319,16 +351,20 @@ def main():
                 logging.info("Operation cancelled by the user.")
 
     elif args.command == "destroy":
-        project_path, project_name = check_ansible_vars("all.yml", "project_name")
+        project_name = check_ansible_vars("all.yml", "project_name")
+        project_path = f"{BASE_DIR_TERRAFORM}/{project_name}"
 
         if os.path.isdir(project_path):
+            instance = wrapper(project_name)
+            tf_files, segmen = instance.choose_segment(args.command)
+
+            formatted_segmen = ", ".join(segmen)
             user_input = input(
-                f"Are you sure you want to destroy the resources in {project_path}? [y/N] "
+                f"\nAre you sure you want to destroy the resource(s) [{formatted_segmen}] in {project_path}? [y/N] "
             )
             if user_input.lower() == "y":
                 logging.info("OK")
-                instance = wrapper(project_name)
-                instance.process(args.command)
+                instance.process(args.command, False, tf_files)
             else:
                 logging.info("Operation cancelled by the user.")
         else:
