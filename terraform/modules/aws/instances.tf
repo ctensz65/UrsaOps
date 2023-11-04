@@ -43,8 +43,9 @@ resource "aws_instance" "main" {
       "sudo sed -i '/^127.0.0.1/c\\127.0.0.1 ${var.computer_name} localhost.localdomain localhost' /etc/hosts",
       "sudo hostnamectl set-hostname ${var.computer_name}",
       "sudo apt-get update -y",
-      "sudo apt-get upgrade -y"
-    ]
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y wget curl git jq tar openssl net-tools ntp docker.io docker-compose"
+  ]
 
     connection {
       type        = "ssh"

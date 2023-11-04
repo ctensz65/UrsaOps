@@ -5,6 +5,7 @@ module "{{ suffix }}" {
   instance_name       = "{{ suffix }}"
   tag_name            = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}"
+  local_user          = "${var.local_user}"
   
   ingress_rules       = {{ ingress_rules | tojson }}
 
@@ -26,6 +27,7 @@ module "{{ suffix }}" {
   username_vm         = "{{ data.vm_username }}"
   vm_size             = "Standard_B1s"
   tags_segment        = "{{ suffix }}"
+  local_user          = "${var.local_user}"
   inbound_rules       = {{ inbound | tojson }}
 }
 {% endmacro -%}
@@ -71,6 +73,8 @@ resource "local_file" "ansible_inventory" {
   content  = local.inventory_content
   filename = "${path.root}/inventory.ini"
 }
+
+variable "local_user" {}
 
 {% if phish_data.provider == "azure" -%}
 output "phish_instance_passwords" {

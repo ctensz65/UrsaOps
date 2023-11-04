@@ -8,7 +8,7 @@ output "instance_details" {
   value = {
     ip       = azurerm_public_ip.pip.ip_address
     user     = var.username_vm
-    hostname = var.computer_name
+    hostname = azurerm_linux_virtual_machine.main.name
     pass     = azurerm_linux_virtual_machine.main.admin_password
   }
 }

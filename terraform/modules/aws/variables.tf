@@ -63,7 +63,7 @@ variable "private_key_path" {
 variable "local_user" {
   description = "The local username, change to your localuser"
   type        = string
-  default     = "leroy" 
+  default     = null
 }
 
 

@@ -39,7 +39,7 @@ variable "tags_segment" {
 variable "local_user" {
   description = "The local username, can be overridden by setting the TF_VAR_local_user"
   type        = string
-  default     = "leroy"
+  default     = null
 }
 
 variable "private_key_path" {

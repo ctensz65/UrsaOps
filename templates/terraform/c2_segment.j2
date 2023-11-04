@@ -9,6 +9,7 @@ module "{{ suffix }}" {
   username_vm         = "{{ data.vm_username }}"
   vm_size             = "Standard_B1s"
   tags_segment        = "{{ suffix }}"
+  local_user          = "${var.local_user}"
   inbound_rules       = {{ inbound | tojson }}
 }
 {% endmacro -%}
@@ -20,6 +21,7 @@ module "{{ suffix }}" {
   tag_name            = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}{% if data.count > 1 and current_index is not none %}{{ current_index }}{% endif %}"
   username_vm         = "{{ data.vm_username }}"
+  local_user          = "${var.local_user}"
   
   ingress_rules       = {{ ingress_rules | tojson }}
 
@@ -39,6 +41,8 @@ resource "azurerm_resource_group" "rg" {
   name     = "segment_c2_resources"
   location = "{{ c2_data.region }}"
 }
+
+variable "local_user" {}
 
 {% set https_inbound = [{ "port": "22", "protocol": "Tcp" }, { "port": "443", "protocol": "Tcp" }, { "port": "80", "protocol": "Tcp" }] %}
   {% for _ in range(https_data.count) %}

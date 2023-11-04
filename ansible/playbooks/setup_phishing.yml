@@ -1,14 +1,4 @@
 ---
-- name: Install Docker at Backend Server
-  hosts: "{{ phish_machine | default('phishsrv') }}"
-  become: yes
-  tasks:
-    - include_role:
-        name: common
-        tasks_from: docker
-  tags:
-    - install_docker
-
 - name: Install Certbot at Redirector
   hosts: "{{ redir_phish | default('redirector_phish') }}"
   become: yes

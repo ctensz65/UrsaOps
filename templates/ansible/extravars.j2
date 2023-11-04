@@ -1,18 +1,25 @@
 ---
 headscale: "headscale"
-{% if c2_data is not none %}
+{% set has_redirector = c2_data or phish_data %}
+{% set has_c2_https_redirector = c2_data and c2_data.get('redir_https', {}).get('count', 0) > 0 %}
+{% set has_phish_redirector = phish_data %}
+{% set has_dns_redirector = c2_data and c2_data.get('redir_dns') %}
+{% if has_redirector %}
 redirector:
+  {% if has_c2_https_redirector %}
   https:  
-  {% for num in range(1, c2_data.redir_https.count + 1) %}
-    - {{ c2_data.redir_https.instance_name }}{% if c2_data.redir_https.count > 1 %}{{ num }}{% endif %}
-  
-  {% endfor -%}
-  {% if phish_data %}
-  phish: "{{ phish_data.redir.instance_name }}"
+    {% for num in range(1, c2_data.redir_https.count + 1) %}
+    - {{ c2_data.redir_https.vm_hostname }}{% if c2_data.redir_https.count > 1 %}{{ num }}{% endif %}
+    {% endfor %}
   {% endif %}
-  {% if c2_data.get('redir_dns') %}
-  dns: "{{ c2_data.redir_dns.instance_name }}"
+  {% if has_phish_redirector %}
+  phish: "{{ phish_data.redir.vm_hostname }}"
   {% endif %}
+  {% if has_dns_redirector %}
+  dns: "{{ c2_data.redir_dns.vm_hostname }}"
+  {% endif %}
+{% endif %}
+{% if c2_data %}
 c2_machine: "{{ c2_data.framework.vm_hostname }}"
 {% endif %}
 {% if phish_data %}
@@ -21,4 +28,3 @@ phish_machine: "{{ phish_data.server.vm_hostname }}"
 {% if siem_data %}
 siem_machine: "{{ siem_data.vm_hostname }}"
 {% endif %}
-

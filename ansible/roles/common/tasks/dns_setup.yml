@@ -18,10 +18,13 @@
     - dns_provider == 'manual'
     - ansible_host not in dns_result.stdout_lines
 
+- set_fact:
+    machine_domain_map: "{{ machine_domain_map | default({}) }}"
+
 - name: Cloudflare - Set A Records
   community.general.cloudflare_dns:
-    account_email: "{{ CF_EMAIL }}"
-    account_api_token: "{{ CF_TOKEN }}"
+    account_email: "{{ lookup('env', 'CF_EMAIL') }}"
+    account_api_token: "{{ lookup('env', 'CF_TOKEN') }}"
     record: "@"
     zone: "{{ item.value }}"
     type: A
@@ -34,11 +37,12 @@
     - ansible_host not in dns_result.stdout_lines
     - item.key not in inventory_hostname
     - item.key != 'redir_dns'
+    - dns_provider != 'manual'
 
 - name: Cloudflare - Set A record for DNS (special handling for redir_dns)
   cloudflare_dns:
-    account_email: "{{ CF_EMAIL }}"
-    account_api_token: "{{ CF_TOKEN }}"
+    account_email: "{{ lookup('env', 'CF_EMAIL') }}"
+    account_api_token: "{{ lookup('env', 'CF_TOKEN') }}"
     record: "dns"
     zone: "{{ item.value.split('.')[-2] + '.' + item.value.split('.')[-1] }}"
     value: "{{ hostvars[item.key].ansible_host }}"
@@ -49,12 +53,13 @@
     - item.key == 'redir_dns'
     - dns_provider == 'cloudflare'
     - ansible_host not in dns_result.stdout_lines
+    - dns_provider != 'manual'
   loop: "{{ machine_domain_map.items() }}"
 
 - name: Set NS record for DNS (special handling for redir_dns)
   cloudflare_dns:
-    account_email: "{{ CF_EMAIL }}"
-    account_api_token: "{{ CF_TOKEN }}"
+    account_email: "{{ lookup('env', 'CF_EMAIL') }}"
+    account_api_token: "{{ lookup('env', 'CF_TOKEN') }}"
     record: "{{ item.value.split('.')[0] }}"
     value: "dns.{{ item.value.split('.')[-2] + '.' + item.value.split('.')[-1] }}"
     type: "NS"
@@ -62,12 +67,13 @@
     - item.key == 'redir_dns'
     - dns_provider == 'cloudflare'
     - ansible_host not in dns_result.stdout_lines
-  loop: "{{ machine_domain_map.items() }}"
+    - dns_provider != 'manual'
+  loop: "{{ machine_domain_map | dict2items }}"
 
 - name: Cloudflare - Set CNAME record
   community.general.cloudflare_dns:
-    account_email: "{{ CF_EMAIL }}"
-    account_api_token: "{{ CF_TOKEN }}"
+    account_email: "{{ lookup('env', 'CF_EMAIL') }}"
+    account_api_token: "{{ lookup('env', 'CF_TOKEN') }}"
     zone: "{{ zone_cname }}"
     record: "{{ record_cname }}"
     type: CNAME
@@ -77,11 +83,12 @@
   when:
     - dns_provider == 'cloudflare'
     - ansible_host not in dns_result.stdout_lines
+    - dns_provider != 'manual'
 
 - name: Cloudflare - Set TXT record
   community.general.cloudflare_dns:
-    account_email: "{{ CF_EMAIL }}"
-    account_api_token: "{{ CF_TOKEN }}"
+    account_email: "{{ lookup('env', 'CF_EMAIL') }}"
+    account_api_token: "{{ lookup('env', 'CF_TOKEN') }}"
     zone: "{{ zone_txt }}"
     record: "@"
     type: TXT
@@ -91,3 +98,4 @@
   when:
     - dns_provider == 'cloudflare'
     - ansible_host not in dns_result.stdout_lines
+    - dns_provider != 'manual'

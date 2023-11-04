@@ -37,11 +37,15 @@
     - count_redir
 
 - name: Domain mapping
-  hosts: localhost
+  hosts: group_redir_https:temp_redir_https_group
   gather_facts: no
   tasks:
   
     - block:
+        - name: Print dns_provider value
+          debug:
+            var: dns_provider
+            
         - name: Prepare domain map for a single redirector
           set_fact:
             machine_domain_map:

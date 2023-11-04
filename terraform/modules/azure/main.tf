@@ -1,6 +1,6 @@
 locals {
-  resolved_private_key_path = var.private_key_path != "" ? var.private_key_path : "/home/${var.local_user}/.ssh/id_rsa"
-  resolved_public_key_path  = var.public_key != "" ? var.public_key : "/home/${var.local_user}/.ssh/id_rsa.pub"
+  resolved_private_key_path = var.private_key_path != "" ? var.private_key_path : "~/.ssh/id_rsa"
+  resolved_public_key_path  = var.public_key != "" ? var.public_key : "~/.ssh/id_rsa.pub"
 }
 
 resource "azurerm_linux_virtual_machine" "main" {
@@ -46,8 +46,9 @@ resource "azurerm_linux_virtual_machine" "main" {
 
   provisioner "remote-exec" {
     inline = [
-      "sudo apt-get update",
-      "sudo apt-get upgrade -y"
+      "sudo apt-get update -y | tee /tmp/provisioner-output.log",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y | tee /tmp/provisioner-output.log",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y wget curl git jq tar openssl net-tools ntp docker.io docker-compose | tee /tmp/provisioner-output.log"
     ]
   }
 }

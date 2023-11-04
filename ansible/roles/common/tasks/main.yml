@@ -1,29 +1,7 @@
 ---
-- name: Update the apt package cache
-  apt:
-    update_cache: yes
-  tags:
-    - initial
-
-- name: Install required packages
-  apt:
-    name: "{{ packages }}"
-    state: present
-  vars:
-    packages:
-      - wget
-      - curl
-      - tar
-      - jq
-      - git
-      - openssl
-      - net-tools
-  tags:
-    - initial
-
-- name: Install and start NTP on Debian/Ubuntu
+- name: Start NTP on Debian/Ubuntu
   block:
-    - name: Install NTP
+    - name: Ensure NTP already installed
       apt:
         name: ntp
         state: present

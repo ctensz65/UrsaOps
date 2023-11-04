@@ -5,10 +5,12 @@ from python_terraform import *
 import yaml
 import argparse
 import logging
-from libterraform import TerraformCommand
+import subprocess
 
 from generate_vars import ansibleVars
 from generate_inventory import *
+
+os.environ["TF_VAR_local_user"] = os.getenv("USER")
 
 ursaops_root = os.environ.get("URSAOPS_ROOT")
 if ursaops_root is None:
@@ -140,7 +142,7 @@ class wrapper:
 
     def choose_segment(self, action):
         main_tf_files, segments = self.search_maintf()
-
+        
         input_message = f"\nWhich segment would you like to {action} with terraform?\n"
         for index, item in enumerate(segments):
             input_message += f"{index + 1}) {item}\n"
@@ -214,14 +216,15 @@ class wrapper:
             )
             print_inventory(self.OUTPUT_INVENTORY)
 
-    def provision(self, segment, tags=None):
+    def provision(self, segment, action, tags=None):
         if segment in self.map_groupvars:
             var = self.map_groupvars[segment]
-            dns_provider = check_ansible_vars(var, "dns_provider")
-            if dns_provider == "manual":
-                print(
-                    f"{Color.GREEN}====================== Remember, You choose to setup DNS Records manually{Color.END}\n"
-                )
+            if var != "all.yml":
+                dns_provider = check_ansible_vars(var, "dns_provider")
+                if dns_provider == "manual":
+                    print(
+                        f"{Color.GREEN}====================== Remember, You choose to setup DNS Records manually{Color.END}\n"
+                    )
 
         if segment in self.map_playbook:
             print(
@@ -338,15 +341,32 @@ def main():
         ]
 
         if project_path:
-            print(f"Found the currect project !\n{project_name}")
-            for segment in segments:
-                print(" - " + segment)
+            print(f"Found the currect project [{project_name}]")
+
+            input_message = f"\nWhich segment would you like to provision?\n"
+            for index, item in enumerate(segments):
+                input_message += f"{index + 1}) {item}\n"
+            input_message += f"{len(segments) + 1}) all\n"
+            input_message += "\nYour choice: "
+
+            while True:
+                user_input = input(input_message)
+                if user_input.isdigit() and 1 <= int(user_input) <= len(segments) + 1:
+                    user_choice = int(user_input)
+
+                    if 1 <= user_choice <= len(segments):
+                        segments = [segments[user_choice - 1]]
+                        break
+
+                    elif user_choice == len(segments) + 1:
+                        break
+                print("Invalid choice. Please try again.")
+
             user_input = input(f"Start the provisioning? [y/N] > ")
             if user_input.lower() == "y":
                 logging.info("OK")
-                # for segment in segments:
-                #     instance.provision(segment)
-                instance.provision(segments[1])
+                for segment in segments:
+                    instance.provision(segment, args.command)
             else:
                 logging.info("Operation cancelled by the user.")
 

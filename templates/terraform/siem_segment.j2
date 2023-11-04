@@ -6,6 +6,7 @@ module "{{ suffix }}" {
   tag_name            = "{{ suffix }}"
   computer_name       = "{{ data.vm_hostname }}"
   vm_size             = "{{ data.vm_size }}"
+  local_user          = "${var.local_user}"
   
   ingress_rules       = {{ ingress_rules | tojson }}
 
@@ -27,6 +28,7 @@ module "{{ suffix }}" {
   username_vm         = "{{ data.vm_username }}"
   vm_size             = "{{ data.vm_size }}"
   tags_segment        = "{{ suffix }}"
+  local_user          = "${var.local_user}"
   inbound_rules       = {{ inbound | tojson }}
 }
 {% endmacro -%}
@@ -61,6 +63,8 @@ resource "local_file" "ansible_inventory" {
   content  = local.inventory_content
   filename = "${path.root}/inventory.ini"
 }
+
+variable "local_user" {}
 
 {% if siem_data.provider == "azure" %}
 output "siem_instance_passwords" {

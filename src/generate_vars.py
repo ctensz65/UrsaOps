@@ -62,8 +62,8 @@ class ansibleVars:
                 "count": 1,
                 "domain": "redteam.id",
                 "instance_name": "redirector_https",
-                "vm_hostname": "https",
-                "vm_username": "redir",
+                "vm_hostname": "redirhttps",
+                "vm_username": "node",
             },
             "framework": {
                 "count": 1,
@@ -84,8 +84,8 @@ class ansibleVars:
             },
             "redir": {
                 "instance_name": "redirector_phish",
-                "vm_hostname": "phish",
-                "vm_username": "redir",
+                "vm_hostname": "redirphish",
+                "vm_username": "node",
             },
             "evilginx": {
                 "redirect_url": "https://login.microsoftonline.com",
@@ -348,8 +348,8 @@ class ansibleVars:
                 "count": 1,
                 "subdomain": "backoffice.redteam.id",
                 "instance_name": "redir_dns",
-                "vm_hostname": "dns",
-                "vm_username": "redir",
+                "vm_hostname": "redirdns",
+                "vm_username": "node",
             }
             self.c2_defaults["redir_dns"] = redir_dns_default
 

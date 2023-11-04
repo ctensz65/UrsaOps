@@ -192,4 +192,6 @@ ansible/roles/c2_sliver/files/
 ansible/roles/gophish/files/*
 ansible/env
 ansible/roles/fastlorenzo.*
+terraform/demo_idsecconf
+.env_variables.sh
 src/operator_input.yml

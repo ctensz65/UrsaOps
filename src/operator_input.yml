@@ -1,44 +1,24 @@
 general:
-  project_name: "engagement_2"
+  project_name: "demo_idsecconf"
   ntp_timezone: "Asia/Jakarta"
   region: southeast-asia
   vault_path:
 headscale:
   provider: azure
   setup:
-    dns_provider: manual
-    domain: subengexpo.net
+    dns_provider: cloudflare
+    domain: cartensz-explorer.com
     base_domain_local: redteam.local
-    jump_host: true
     exp_time_preauthkeys:
-segment_c2:
-  provider: azure
-  dns_provider: manual
-  redir_https:
-    count: 1
-    domain: subengexpo.net
-    instance_name: redirector_https
-  redir_dns:
-    instance_name: redirector_dns
-    subdomain: backoffice.subengexpo.net
-  framework:
-    instance_name: c2_server
-    sliver:
-      version:
-      user_agent:
-      uri_path:
 segment_phish:
   provider: aws
   domain: cartensz-explorer.com
-  dns_provider: manual
+  dns_provider: cloudflare
   server:
-    instance_name: 
+    instance_name: phish_srv
   redir:
-    instance_name:
+    instance_name: redir_phish
   evilginx:
     redirect_url:
     path_lures:
     phishlets:
-segment_siem:
-  provider: aws
-  instance_name: siem_redelk

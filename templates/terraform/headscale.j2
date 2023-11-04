@@ -6,6 +6,8 @@ resource "azurerm_resource_group" "rg" {
 }
 {% endif %}
 
+variable "local_user" {}
+
 module "headscale" {
 {% if headscale_data.provider == "aws" %}
     source              = "{{ TERRAFORM_PATH }}/modules/aws"
@@ -13,6 +15,7 @@ module "headscale" {
     tag_name            = "headscale"
     computer_name       = "{{ headscale_data.vm_hostname }}"
     username_vm         = "{{ headscale_data.vm_username }}"
+    local_user          = "${var.local_user}"
 {% elif headscale_data.provider == "azure" %}
     source              = "{{ TERRAFORM_PATH }}/modules/azure"
     resource_group_name = azurerm_resource_group.rg.name
@@ -22,6 +25,7 @@ module "headscale" {
     computer_name       = "{{ headscale_data.vm_hostname }}"
     username_vm         = "{{ headscale_data.vm_username }}"
     tags_segment        = "headscale"
+    local_user          = "${var.local_user}"
 {% elif headscale_data.provider == "digitalocean" %}
     source              = "{{ TERRAFORM_PATH }}/modules/digitalocean"
     instance_name       = "headscale"
